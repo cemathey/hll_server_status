@@ -1,14 +1,21 @@
 [tool.poetry]
 name = "hll-server-status"
 version = "0.1.0"
-description = ""
+description = "A server status tool for reporting Hell Let Loose server status to Discord"
 authors = ["C. Eric Mathey <emathey@protonmail.com>"]
 readme = "README.md"
-packages = [{include = "hll_server_status"}]
+packages = [{ include = "hll_server_status" }]
 
 [tool.poetry.dependencies]
 python = "^3.11"
+discord-py = "^2.1.0"
+black = "^22.12.0"
+isort = "^5.11.4"
+mako = "^1.2.4"
+nox = "^2022.11.21"
 
+[tool.isort]
+profile = "black"
 
 [build-system]
 requires = ["poetry-core"]
