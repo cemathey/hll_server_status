@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# contains secrets
+config/
+
+# discord message IDs
+messages/

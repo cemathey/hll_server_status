@@ -1,0 +1,84 @@
+[discord]
+webhook_url = ""
+
+[api]
+base_server_url = ""
+
+[display]
+
+[display.header]
+# Valid options are "name" or "short_name"
+enabled = true
+name = "name"
+quick_connect_url = ""
+battlemetrics_url = ""
+# Valid options are ["reserved_vip_slots", "current_vips"]
+[[display.header.embeds]]
+name = "Reserved VIP Slots"
+value = "reserved_vip_slots"
+inline = true
+
+[[display.header.embeds]]
+name = "Current VIPs"
+value = "current_vips"
+inline = true
+
+[display.gamestate]
+enabled = true
+# Include the CRCON map picture or not
+image = true
+
+# Allied score is {0} and Axis score is {1}
+score_format = "Allied {0} : Axis {1}"
+score_format_ger_us = "<:icoT_US:1060219985215094804> {0} : <:icoT_GER:1060219972871278602> {1}"
+score_format_ger_rus = "<:icoT_RUS:1060217170455433286> {0} : <:icoT_GER:1060219972871278602> {1}"
+
+
+[[display.gamestate.embeds]]
+name = "Allied"
+value = "num_allied_players"
+inline = true
+[[display.gamestate.embeds]]
+name = "Axis"
+value = "num_axis_players"
+inline = true
+[[display.gamestate.embeds]]
+name = "Player Count"
+value = "slots"
+inline = true
+[[display.gamestate.embeds]]
+name = "\u200b"
+value = "\u200b"
+inline = false
+[[display.gamestate.embeds]]
+name = "Match Score"
+value = "score"
+inline = true
+[[display.gamestate.embeds]]
+name = "Time Remaining"
+value = "time_remaining"
+inline = true
+[[display.gamestate.embeds]]
+name = "\u200b"
+value = "\u200b"
+inline = false
+[[display.gamestate.embeds]]
+name = "Current Map"
+value = "current_map"
+inline = true
+[[display.gamestate.embeds]]
+name = "Next Map"
+value = "next_map"
+inline = true
+
+[display.map_rotation]
+enabled = true
+title = "Map Rotation"
+display_title = true
+separator = '.'
+# emoji or color
+format_style = "color"
+# auto, cyan, green, orange, red, 
+current_map_color = "cyan"
+next_map_color = "cyan"
+other_map_color = "auto"
