@@ -4,6 +4,7 @@ from datetime import timedelta
 from typing import NotRequired, TypedDict
 
 import pydantic
+import tomlkit
 
 from hll_server_status import constants
 
@@ -77,11 +78,18 @@ class Cookies(TypedDict):
 
 @dataclass
 class AppStore:
+    server_identifier: str
+    message_ids: tomlkit.TOMLDocument = field(default_factory=tomlkit.TOMLDocument)
     cookies: Cookies = field(default_factory=Cookies)
 
 
 class URL(pydantic.BaseModel):
     url: pydantic.HttpUrl
+
+
+class OutputConfig(pydantic.BaseModel):
+    message_id_directory: str | None
+    message_id_filename: str | None
 
 
 class DiscordConfig(pydantic.BaseModel):
@@ -93,6 +101,8 @@ class DiscordConfig(pydantic.BaseModel):
 
 class APIConfig(pydantic.BaseModel):
     base_server_url: str
+    username: str
+    password: str
 
     def as_dict(self):
         return {"base_server_url": self.base_server_url}
@@ -141,12 +151,12 @@ class GamestateEmbedConfig(pydantic.BaseModel):
 
 class DisplayHeaderConfig(pydantic.BaseModel):
     enabled: bool
-    name: str
+    server_name: str
     quick_connect_url: pydantic.AnyUrl | None
     battlemetrics_url: pydantic.HttpUrl | None
     embeds: list[DisplayEmbedConfig]
 
-    @pydantic.validator("name")
+    @pydantic.validator("server_name")
     def must_be_valid_name(cls, v):
         if v not in constants.DISPLAY_NAMES:
             raise ValueError(f"Invalid [[display.header]] name={v}")
@@ -156,7 +166,7 @@ class DisplayHeaderConfig(pydantic.BaseModel):
     def as_dict(self):
         return {
             "enabled": self.enabled,
-            "name": self.name,
+            "name": self.server_name,
             "embeds": [embed.as_dict() for embed in self.embeds],
         }
 
@@ -177,30 +187,16 @@ class DisplayGamestateConfig(pydantic.BaseModel):
         }
 
 
-class DisplayMapRotationConfig(pydantic.BaseModel):
+class DisplayMapRotationColorConfig(pydantic.BaseModel):
     enabled: bool
-    title: str
     display_title: bool
-    separator: str
-    format_style: str
+    title: str
     current_map_color: str
     next_map_color: str
     other_map_color: str
-
-    def as_dict(self):
-        return {
-            "enabled": self.enabled,
-            "title": self.title,
-            "display_title": self.display_title,
-            "separator": self.separator,
-        }
-
-    @pydantic.validator("format_style")
-    def must_be_valid_format_style(cls, v):
-        if v not in constants.MAP_ROTATION_FORMAT_STYLES:
-            raise ValueError(f"Invalid [display.map_rotation] format_style={v}")
-
-        return v
+    display_legend: bool
+    legend_title: str
+    legend: list[str]
 
     @pydantic.validator("current_map_color", "next_map_color", "other_map_color")
     def must_be_valid_current_map_color(cls, v, field):
@@ -210,27 +206,44 @@ class DisplayMapRotationConfig(pydantic.BaseModel):
         return v
 
 
+class DisplayMapRotationEmojiConfig(pydantic.BaseModel):
+    enabled: bool
+    display_title: bool
+    title: str
+    current_map_emoji: str
+    next_map_emoji: str
+    other_map_emoji: str
+    display_legend: bool
+    legend: str
+
+
+class DisplayConfigMapRotation(pydantic.BaseModel):
+    color: DisplayMapRotationColorConfig
+    emoji: DisplayMapRotationEmojiConfig
+
+
 class DisplayConfig(pydantic.BaseModel):
     header: DisplayHeaderConfig
     gamestate: DisplayGamestateConfig
-    map_rotation: DisplayMapRotationConfig
+    map_rotation: DisplayConfigMapRotation
 
-    def as_dict(self):
-        return {
-            "header": self.header.as_dict(),
-            "gamestate": self.gamestate.as_dict(),
-            "map_rotation": self.map_rotation.as_dict(),
-        }
+    # def as_dict(self):
+    #     return {
+    #         "header": self.header.as_dict(),
+    #         "gamestate": self.gamestate.as_dict(),
+    #         "map_rotation": self.map_rotation.as_dict(),
+    #     }
 
 
 class Config(pydantic.BaseModel):
+    output: OutputConfig
     discord: DiscordConfig
     api: APIConfig
     display: DisplayConfig
 
-    def as_dict(self):
-        return {
-            "discord": self.discord.as_dict(),
-            "api": self.api.as_dict(),
-            "display": self.display.as_dict(),
-        }
+    # def as_dict(self):
+    #     return {
+    #         "discord": self.discord.as_dict(),
+    #         "api": self.api.as_dict(),
+    #         "display": self.display.as_dict(),
+    #     }

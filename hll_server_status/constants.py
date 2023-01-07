@@ -10,6 +10,18 @@ MESSAGES_DIR = "messages/"
 API_PREFIX = "api/"
 MAP_PICTURES = "maps/"
 
+MESSAGE_ID_FORMAT = {
+    "table_name": "message_ids",
+    "fields": ["header", "gamestate", "map_rotation_color", "map_rotation_emoji"],
+}
+
+REQUIRED_MESSAGE_ID_FIELDS = (
+    "header",
+    "gamestate",
+    "map_rotation_color",
+    "map_rotation_emoji",
+)
+
 DISPLAY_NAMES = ("name", "short_name")
 DISPLAY_EMBEDS = ("reserved_vip_slots", "current_vips")
 GAMESTATE_EMBEDS = (
@@ -27,11 +39,10 @@ MAP_ROTATION_FORMAT_STYLES = ("color", "emoji")
 
 COLOR_TO_CODE_BLOCK = {
     "auto": "",
-    "cyan": "yaml",
-    "green": "diff",
-    "orange": "css",
-    "red": "diff",
-    "yellow": "fix",  # works
+    "cyan": "yaml",  # dsconfig
+    "green": "less",  # less
+    "orange": "ebnf",  # fix ldif mathematica
+    "gray": "bf",  # flix
 }
 
 ALL_MAPS = (
@@ -82,49 +93,49 @@ ALL_MAPS = (
 )
 
 LONG_HUMAN_MAP_NAMES = {
-    "carentan_offensive_ger": "Carentan Offensive (GER)",
-    "carentan_offensive_us": "Carentan Offensive (US)",
+    "carentan_offensive_ger": "Carentan Offensive GER",
+    "carentan_offensive_us": "Carentan Offensive US",
     "carentan_warfare": "Carentan",
-    "foy_offensive_ger": "Foy Offensive (GER)",
-    "foy_offensive_us": "Foy Offensive (US)",
-    "foy_warfare_night": "Foy (Night)",
+    "foy_offensive_ger": "Foy Offensive GER",
+    "foy_offensive_us": "Foy Offensive US",
+    "foy_warfare_night": "Foy Night",
     "foy_warfare": "Foy",
-    "hill400_offensive_ger": "Hill 400 Offensive (GER)",
-    "hill400_offensive_US": "Hill 400 Offensive (US)",
+    "hill400_offensive_ger": "Hill 400 Offensive GER",
+    "hill400_offensive_US": "Hill 400 Offensive US",
     "hill400_warfare": "Hill 400",
-    "hurtgenforest_offensive_ger": "Hürtgen Forest Offensive (GER)",
-    "hurtgenforest_offensive_US": "Hürtgen Forest Offensive (US)",
-    "hurtgenforest_warfare_V2_night": "Hürtgen Forest (Night)",
-    "hurtgenforest_warfare_V2": "Hürtgen Forest",
-    "kharkov_offensive_ger": "Kharkov Offensive (GER)",
-    "kharkov_offensive_rus": "Kharkov Offensive (RUS)",
+    "hurtgenforest_offensive_ger": "Hurtgen Forest Offensive GER",
+    "hurtgenforest_offensive_US": "Hurtgen Forest Offensive US",
+    "hurtgenforest_warfare_V2_night": "Hurtgen Forest Night",
+    "hurtgenforest_warfare_V2": "Hurtgen Forest",
+    "kharkov_offensive_ger": "Kharkov Offensive GER",
+    "kharkov_offensive_rus": "Kharkov Offensive RUS",
     "kharkov_warfare": "Kharkov",
-    "kursk_offensive_ger": "Kursk Offensive (GER)",
-    "kursk_offensive_rus": "Kursk Offensive (RUS)",
-    "kursk_warfare_night": "Kursk (Night)",
+    "kursk_offensive_ger": "Kursk Offensive GER",
+    "kursk_offensive_rus": "Kursk Offensive RUS",
+    "kursk_warfare_night": "Kursk Night",
     "kursk_warfare": "Kursk",
-    "omahabeach_offensive_ger": "Omaha Beach Offensive (GER)",
-    "omahabeach_offensive_us": "Omaha Beach Offensive (US)",
+    "omahabeach_offensive_ger": "Omaha Beach Offensive GER",
+    "omahabeach_offensive_us": "Omaha Beach Offensive US",
     "omahabeach_warfare": "Omaha Beach",
-    "purpleheartlane_offensive_ger": "Purple Heart Lane Offensive (GER)",
-    "purpleheartlane_offensive_us": "Purple Heart Lane Offensive (US)",
-    "purpleheartlane_warfare_night": "Purple Heart Lane (Night)",
+    "purpleheartlane_offensive_ger": "Purple Heart Lane Offensive GER",
+    "purpleheartlane_offensive_us": "Purple Heart Lane Offensive US",
+    "purpleheartlane_warfare_night": "Purple Heart Lane Night",
     "purpleheartlane_warfare": "Purple Heart Lane",
-    "remagen_offensive_ger": "Remagen Offensive (GER)",
-    "remagen_offensive_us": "Remagen Offensive (US)",
-    "remagen_warfare_night": "Remagen (Night)",
+    "remagen_offensive_ger": "Remagen Offensive GER",
+    "remagen_offensive_us": "Remagen Offensive US",
+    "remagen_warfare_night": "Remagen Night",
     "remagen_warfare": "Remagen",
-    "stalingrad_offensive_ger": "Stalingrad Offensive (GER)",
-    "stalingrad_offensive_rus": "Stalingrad Offensive (RUS)",
+    "stalingrad_offensive_ger": "Stalingrad Offensive GER",
+    "stalingrad_offensive_rus": "Stalingrad Offensive RUS",
     "stalingrad_warfare": "Stalingrad",
-    "stmariedumont_off_ger": "Ste Marie du Mont Offensive (GER)",
-    "stmariedumont_off_us": "Ste Marie du Mont Offensive (US)",
+    "stmariedumont_off_ger": "Ste Marie du Mont Offensive GER",
+    "stmariedumont_off_us": "Ste Marie du Mont Offensive US",
     "stmariedumont_warfare": "Ste Marie du Mont",
-    "stmereeglise_offensive_ger": "Ste Mère Église Offensive (GER)",
-    "stmereeglise_offensive_us": "Ste Mère Église Offensive (US)",
-    "stmereeglise_warfare": "Ste Mère Église",
-    "utahbeach_offensive_ger": "Utah Beach Offensive (GER)",
-    "utahbeach_offensive_us": "Utah Beach Offensive (US)",
+    "stmereeglise_offensive_ger": "Ste Mere Eglise Offensive GER",
+    "stmereeglise_offensive_us": "Ste Mere Eglise Offensive US",
+    "stmereeglise_warfare": "Ste Mere Eglise",
+    "utahbeach_offensive_ger": "Utah Beach Offensive GER",
+    "utahbeach_offensive_us": "Utah Beach Offensive US",
     "utahbeach_warfare": "Utah Beach",
 }
 
@@ -132,10 +143,10 @@ MAP_TO_PICTURE = {
     "carentan": "carentan.webp",
     "foy": "foy.webp",
     "hill400": "hill400.webp",
-    "hurtgen": "hurtgen.webp",
+    "hurtgenforest": "hurtgen.webp",
     "kharkov": "kharkov.webp",
     "kursk": "kursk.webp",
-    "omaha": "omaha.webp",
+    "omahabeach": "omaha.webp",
     "purpleheartlane": "phl.webp",
     "remagen": "remagen.webp",
     "stalingrad": "stalingrad.webp",
