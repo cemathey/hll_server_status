@@ -1,23 +1,43 @@
+[output]
+# Directory/filename to save existing message IDs
+# You can delete these files or hand edit them as needed to fix problems
+# If the file doesn't exist the tool will create new messages
+message_id_directory = ""
+message_id_filename = ""
+
 [discord]
 webhook_url = ""
 
 [api]
+# The URL or IP address of your RCON
 base_server_url = ""
+# Your CRCON username and password
+username = ""
+password = ""
 
 [display]
 
+# An embed to display some summary information about your server
 [display.header]
-# Valid options are "name" or "short_name"
 enabled = true
-name = "name"
+# Valid options are: "name" or "short_name" as set in your CRCON setup
+server_name = "name"
+# Your steam quick connect URL, set to "" to disable
 quick_connect_url = ""
+# Your BattleMetrics server URL, set to "" to disable
 battlemetrics_url = ""
-# Valid options are ["reserved_vip_slots", "current_vips"]
+
+# A list of Discord Embeds
+# name is the text you will see in Discord for the field title
+# value must be one of ["reserved_vip_slots", "current_vips"]
+# Discord does not allow sending an empty name or value
+# but you can use a zero width space "\u200b" with inline = false to skip a line
+# inline = true will put fields on the same line until cleared with another field
+# that has inline = false set
 [[display.header.embeds]]
 name = "Reserved VIP Slots"
 value = "reserved_vip_slots"
 inline = true
-
 [[display.header.embeds]]
 name = "Current VIPs"
 value = "current_vips"
@@ -28,12 +48,22 @@ enabled = true
 # Include the CRCON map picture or not
 image = true
 
+# The formats for the match objective score, you can include emojis or server reactions
 # Allied score is {0} and Axis score is {1}
+# You can either use `score_format` as a generic one, or set per faction ones
+# `score_format` will be used if the more specific ones are not set
+# Set to "" if you don't want a more specific one
 score_format = "Allied {0} : Axis {1}"
 score_format_ger_us = "<:icoT_US:1060219985215094804> {0} : <:icoT_GER:1060219972871278602> {1}"
 score_format_ger_rus = "<:icoT_RUS:1060217170455433286> {0} : <:icoT_GER:1060219972871278602> {1}"
 
-
+# A list of Discord Embeds for values from the CRCON API get_gamestate call
+# name is the text you will see in Discord for the field title
+# value must be a field returned by `get_gamestate`
+# Discord does not allow sending an empty name or value
+# but you can use a zero width space "\u200b" with inline = false to skip a line
+# inline = true will put fields on the same line until cleared with another field
+# that has inline = false set
 [[display.gamestate.embeds]]
 name = "Allied"
 value = "num_allied_players"
@@ -71,14 +101,38 @@ name = "Next Map"
 value = "next_map"
 inline = true
 
-[display.map_rotation]
-enabled = true
-title = "Map Rotation"
+# Display the map rotation as a list of triple backtick ` color coded code blocks
+# https://www.technipages.com/discord-code-blocks
+[display.map_rotation.color]
+enabled = false
 display_title = true
-separator = '.'
-# emoji or color
-format_style = "color"
-# auto, cyan, green, orange, red, 
+title = "Map Rotation"
+# Valid options are: auto, cyan, green, orange, gray
 current_map_color = "cyan"
-next_map_color = "cyan"
+next_map_color = "green"
 other_map_color = "auto"
+
+display_legend = true
+legend_title = """
+
+Legend
+"""
+legend = ["Current Map", "Next Map", "Other Maps"]
+
+# Display the map rotation as a list of Discord Embeds
+[display.map_rotation.emoji]
+enabled = true
+display_title = true
+title = "Map Rotation"
+# Map name is {0} and index is {1}
+current_map_emoji = "🟩 {1}. **{0}**"
+next_map_emoji = "🟨 {1}. {0}"
+other_map_emoji = "⬛ {1}. {0}"
+display_legend = true
+legend = """
+
+Legend
+🟩 - Current Map
+🟨 - Next Map
+⬛ - Other Maps
+"""
