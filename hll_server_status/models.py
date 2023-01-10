@@ -3,10 +3,16 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import NotRequired, TypedDict
 
+import aiohttp
 import pydantic
 import tomlkit
 
 from hll_server_status import constants
+
+
+class MessageIDFormat(TypedDict):
+    table_name: str
+    fields: list[str]
 
 
 class ServerName(pydantic.BaseModel):
@@ -79,6 +85,7 @@ class Cookies(TypedDict):
 @dataclass
 class AppStore:
     server_identifier: str
+    # session: aiohttp.ClientSession
     message_ids: tomlkit.TOMLDocument = field(default_factory=tomlkit.TOMLDocument)
     cookies: Cookies = field(default_factory=Cookies)
 
@@ -94,6 +101,7 @@ class OutputConfig(pydantic.BaseModel):
 
 class DiscordConfig(pydantic.BaseModel):
     webhook_url: pydantic.HttpUrl
+    time_between_refreshes: pydantic.conint(ge=1)
 
     def as_dict(self):
         return {"webhook_url": self.webhook_url}
@@ -154,6 +162,8 @@ class DisplayHeaderConfig(pydantic.BaseModel):
     server_name: str
     quick_connect_url: pydantic.AnyUrl | None
     battlemetrics_url: pydantic.HttpUrl | None
+    display_last_refreshed: bool
+    last_refresh_text: str
     embeds: list[DisplayEmbedConfig]
 
     @pydantic.validator("server_name")
@@ -177,6 +187,8 @@ class DisplayGamestateConfig(pydantic.BaseModel):
     score_format: str
     score_format_ger_us: str | None
     score_format_ger_rus: str | None
+    display_last_refreshed: bool
+    last_refresh_text: str
     embeds: list[GamestateEmbedConfig]
 
     def as_dict(self):
@@ -197,6 +209,8 @@ class DisplayMapRotationColorConfig(pydantic.BaseModel):
     display_legend: bool
     legend_title: str
     legend: list[str]
+    display_last_refreshed: bool
+    last_refresh_text: str
 
     @pydantic.validator("current_map_color", "next_map_color", "other_map_color")
     def must_be_valid_current_map_color(cls, v, field):
@@ -206,20 +220,22 @@ class DisplayMapRotationColorConfig(pydantic.BaseModel):
         return v
 
 
-class DisplayMapRotationEmojiConfig(pydantic.BaseModel):
+class DisplayMapRotationEmbedConfig(pydantic.BaseModel):
     enabled: bool
     display_title: bool
     title: str
-    current_map_emoji: str
-    next_map_emoji: str
-    other_map_emoji: str
+    current_map: str
+    next_map: str
+    other_map: str
     display_legend: bool
     legend: str
+    display_last_refreshed: bool
+    last_refresh_text: str
 
 
 class DisplayConfigMapRotation(pydantic.BaseModel):
     color: DisplayMapRotationColorConfig
-    emoji: DisplayMapRotationEmojiConfig
+    embed: DisplayMapRotationEmbedConfig
 
 
 class DisplayConfig(pydantic.BaseModel):

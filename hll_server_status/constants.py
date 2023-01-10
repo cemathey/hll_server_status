@@ -1,26 +1,19 @@
+from hll_server_status.models import MessageIDFormat
+
 EMPTY_EMBED = "\u200B"
+NONE_MESSAGE_ID = 0
 
 SESSION_ID_COOKIE = "sessionid"
 CONFIG_DIR = "config/"
-CONFIG_FILENAME = "config.toml"
-
 MESSAGES_DIR = "messages/"
-# MESSAGES_FILENAME_SUFFIX = "_messages.toml"
 
 API_PREFIX = "api/"
 MAP_PICTURES = "maps/"
 
-MESSAGE_ID_FORMAT = {
+MESSAGE_ID_FORMAT: MessageIDFormat = {
     "table_name": "message_ids",
-    "fields": ["header", "gamestate", "map_rotation_color", "map_rotation_emoji"],
+    "fields": ["header", "gamestate", "map_rotation_color", "map_rotation_embed"],
 }
-
-REQUIRED_MESSAGE_ID_FIELDS = (
-    "header",
-    "gamestate",
-    "map_rotation_color",
-    "map_rotation_emoji",
-)
 
 DISPLAY_NAMES = ("name", "short_name")
 DISPLAY_EMBEDS = ("reserved_vip_slots", "current_vips")
@@ -34,8 +27,6 @@ GAMESTATE_EMBEDS = (
     "next_map",
     EMPTY_EMBED,
 )
-
-MAP_ROTATION_FORMAT_STYLES = ("color", "emoji")
 
 COLOR_TO_CODE_BLOCK = {
     "auto": "",
@@ -206,3 +197,5 @@ US_MAPS = (
     "utahbeach_offensive_us",
     "utahbeach_warfare",
 )
+
+# TODO: Update with British maps on U14 release

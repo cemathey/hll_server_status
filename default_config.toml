@@ -7,6 +7,7 @@ message_id_filename = ""
 
 [discord]
 webhook_url = ""
+time_between_refreshes = 5
 
 [api]
 # The URL or IP address of your RCON
@@ -26,6 +27,9 @@ server_name = "name"
 quick_connect_url = ""
 # Your BattleMetrics server URL, set to "" to disable
 battlemetrics_url = ""
+
+display_last_refreshed = true
+last_refresh_text = "Last refreshed"
 
 # A list of Discord Embeds
 # name is the text you will see in Discord for the field title
@@ -56,6 +60,9 @@ image = true
 score_format = "Allied {0} : Axis {1}"
 score_format_ger_us = "<:icoT_US:1060219985215094804> {0} : <:icoT_GER:1060219972871278602> {1}"
 score_format_ger_rus = "<:icoT_RUS:1060217170455433286> {0} : <:icoT_GER:1060219972871278602> {1}"
+
+display_last_refreshed = true
+last_refresh_text = "Last refreshed"
 
 # A list of Discord Embeds for values from the CRCON API get_gamestate call
 # name is the text you will see in Discord for the field title
@@ -104,7 +111,7 @@ inline = true
 # Display the map rotation as a list of triple backtick ` color coded code blocks
 # https://www.technipages.com/discord-code-blocks
 [display.map_rotation.color]
-enabled = false
+enabled = true
 display_title = true
 title = "Map Rotation"
 # Valid options are: auto, cyan, green, orange, gray
@@ -118,16 +125,20 @@ legend_title = """
 Legend
 """
 legend = ["Current Map", "Next Map", "Other Maps"]
+display_last_refreshed = true
+last_refresh_text = """
+Last refreshed <t:{0}:R>
+"""
 
-# Display the map rotation as a list of Discord Embeds
-[display.map_rotation.emoji]
+# Display the map rotation as Discord Embed of fields
+[display.map_rotation.embed]
 enabled = true
 display_title = true
 title = "Map Rotation"
 # Map name is {0} and index is {1}
-current_map_emoji = "🟩 {1}. **{0}**"
-next_map_emoji = "🟨 {1}. {0}"
-other_map_emoji = "⬛ {1}. {0}"
+current_map = "🟩 {1}. **{0}**"
+next_map = "🟨 {1}. {0}"
+other_map = "⬛ {1}. {0}"
 display_legend = true
 legend = """
 
@@ -136,3 +147,5 @@ Legend
 🟨 - Next Map
 ⬛ - Other Maps
 """
+display_last_refreshed = true
+last_refresh_text = "Last refreshed"

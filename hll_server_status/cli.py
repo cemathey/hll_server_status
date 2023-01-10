@@ -1,15 +1,19 @@
+import asyncio
+import http.cookies
 import logging
 import os
 import re
 import sys
+import time
 import tomllib
-from datetime import timedelta
-from functools import wraps
+from datetime import datetime, timedelta
+from functools import partial, wraps
 from pathlib import Path
 from typing import Any, Callable
 
+import aiofiles
+import aiohttp
 import discord
-import requests
 import tomlkit
 
 from hll_server_status import constants
@@ -23,6 +27,7 @@ from hll_server_status.models import (
     GameState,
     LoginParameters,
     Map,
+    MessageIDFormat,
     OutputConfig,
     ServerName,
     Slots,
@@ -32,12 +37,10 @@ logging.basicConfig(level=os.getenv("LOGGING_LEVEL", logging.INFO), stream=sys.s
 logger = logging.getLogger()
 
 
-def load_config(path: Path | None = None) -> Config:
-    if not path:
-        path = Path(constants.CONFIG_DIR, constants.CONFIG_FILENAME)
-
+def load_config(path: Path) -> Config:
+    """Load and validate a TOML config file"""
     raw_config: dict[str, Any]
-    with open(Path(path), mode="rb") as fp:
+    with open(path, mode="rb") as fp:
         raw_config = tomllib.load(fp)
 
     config = Config(
@@ -50,42 +53,20 @@ def load_config(path: Path | None = None) -> Config:
     return config
 
 
-def load_message_ids(
-    app_store: AppStore,
-    config: Config,
-    path: str | None = None,
-    filename: str | None = None,
-) -> tomlkit.TOMLDocument:
-    if not path:
-        path = constants.MESSAGES_DIR
-
-    if not filename:
-        filename = app_store.server_identifier
-
-    logger.info(f"Loading message IDs from {Path(path, filename)}")
-
-    message_ids = None
-    with open(Path(path, filename), mode="r") as fp:
-        message_ids = tomlkit.load(fp)
-
-    logger.info(f"Loaded message IDs={message_ids}")
-    return message_ids
+async def save_message_id(
+    app_store: AppStore, table_name: str, key: str, message_id: int
+) -> None:
+    """Update a webhook message ID in the app_store"""
+    app_store.message_ids[table_name][key] = message_id
 
 
-def save_message_id(app_store: AppStore, table, key, value):
-
-    message_ids = app_store.message_ids
-    message_ids[table][key] = value
-
-    app_store.message_ids = message_ids
-
-
-def persist_message_ids(
+async def save_message_ids_to_disk(
     app_store: AppStore,
     config: Config,
     path: str | None = None,
     filename: str | None = None,
 ) -> None:
+    """Save the current message IDs for a specific config to disk"""
     if config.output.message_id_directory:
         path = config.output.message_id_directory
 
@@ -98,73 +79,86 @@ def persist_message_ids(
     if not filename:
         filename = app_store.server_identifier
 
-    with open(Path(path, filename), mode="w") as fp:
-        tomlkit.dump(app_store.message_ids, fp)
+    file = Path(path, filename)
+    logger.info(f"Saving message IDs to {file}")
+    async with aiofiles.open(file, mode="w") as fp:
+        toml = tomlkit.dumps(app_store.message_ids)
+        await fp.write(toml)
 
 
-def login(
+async def login(
     config: Config,
+    session: aiohttp.ClientSession,
     username: str,
     password: str,
     endpoint: str = "login",
     api_prefix=constants.API_PREFIX,
-):
-    params = LoginParameters(username=username, password=password)
-    response = requests.post(
-        config.api.base_server_url + api_prefix + endpoint,
-        data=params.as_json(),
-    )
-
+) -> http.cookies.Morsel[str] | None:
+    """Log into CRCON and return the sessionid cookie for future requests"""
     if not username or not password:
         raise ValueError("Username or password not provided.")
 
-    if response.status_code != requests.codes.ok:
+    params = LoginParameters(username=username, password=password)
+    response = await session.post(
+        config.api.base_server_url + api_prefix + endpoint, data=params.as_json()
+    )
+
+    if response.status != 200:
         response.raise_for_status()
 
     return response.cookies.get(constants.SESSION_ID_COOKIE)
 
 
 def with_login(func: Callable):
+    """Wrap functions that call the CRCON API and save the sessionid cookie"""
+
     @wraps(func)
-    def inner(app_store: AppStore, config: Config, *args, **kwargs):
+    async def inner(
+        app_store: AppStore,
+        config: Config,
+        session: aiohttp.ClientSession,
+        *args,
+        **kwargs,
+    ):
         username = config.api.username
         password = config.api.password
 
         if not app_store.cookies.get("sessionid", None):
-            app_store.cookies["sessionid"] = login(config, username, password)
+            app_store.cookies["sessionid"] = await login(
+                config, session, username, password
+            )
 
-        return func(app_store, config, *args, **kwargs)
+        return await func(app_store, config, session, *args, **kwargs)
 
     return inner
 
 
 @with_login
-def get_api_result(
+async def get_api_result(
     app_store: AppStore,
     config: Config,
+    session: aiohttp.ClientSession,
     endpoint: str,
     api_prefix: str | None = None,
     base_url: str | None = None,
-):
-
+) -> Any:
+    """Call the CRCON API endpoint and return the unparsed result"""
     if base_url is None:
         base_url = config.api.base_server_url
 
     if api_prefix is None:
         api_prefix = constants.API_PREFIX
 
-    # You can pass app_store.cookies in directly but it complains about types
-    # even though it's a dict[str, str]
-    response = requests.post(
-        base_url + api_prefix + endpoint,
-        cookies=app_store.cookies,  # type: ignore
+    response = await session.post(
+        url=base_url + api_prefix + endpoint, cookies=app_store.cookies
     )
 
-    if response.status_code != requests.codes.ok:
+    if response.status != 200:
         response.raise_for_status()
 
+    json = await response.json()
     try:
-        result = response.json()["result"]
+        result = json["result"]
     except IndexError:
         raise AttributeError("Received an invalid response from your CRCON Server")
 
@@ -172,6 +166,7 @@ def get_api_result(
 
 
 def parse_gamestate(result: dict[str, Any]) -> GameState:
+    """Parse and validate the result of /api/get_gamestate"""
     time_remaining_pattern = re.compile(r"(\d{1}):(\d{2}):(\d{2})")
     matched = re.match(time_remaining_pattern, result["raw_time_remaining"])
     if not matched:
@@ -197,17 +192,20 @@ def parse_gamestate(result: dict[str, Any]) -> GameState:
 
 
 def parse_slots(result: str) -> Slots:
+    """Parse and validate the result of /api/get_slots"""
     player_count, max_players = result.split("/")
     return Slots(player_count=int(player_count), max_players=int(max_players))
 
 
 def parse_map_rotation(result: list[str]) -> list[Map]:
+    """Parse and validate the result of /api/get_map_rotation"""
     return [Map(raw_name=map_name) for map_name in result]
 
 
 def get_map_picture_url(
     config: Config, map: Map, map_prefix=constants.MAP_PICTURES
 ) -> URL:
+    """Build and validate a URL to the CRCON map image"""
     base_map_name, _ = map.raw_name.split("_", maxsplit=1)
     url = (
         config.api.base_server_url
@@ -220,20 +218,24 @@ def get_map_picture_url(
 
 
 def parse_server_name(result: dict[str, Any]) -> ServerName:
+    """Parse and validate the server name/short name from /api/get_status"""
     return ServerName(name=result["name"], short_name=result["short_name"])
 
 
 def parse_vip_slots_num(result: str):
+    """Parse and validate the number of reserved VIP slots from /api/get_vip_slots_num"""
     return int(result)
 
 
 def parse_vips_count(result: str):
+    """Parse and validate the number of VIPs on the server from /api/get_vip_slots_num"""
     return int(result)
 
 
 def guess_current_map_rotation_positions(
     rotation: list[Map], current_map: Map, next_map: Map
 ) -> list[int]:
+    """Estimate the index(es) of the current map in the rotation based off current/next map"""
     # As of U13 a map can be in a rotation more than once, but the index isn't
     # provided by RCON so we have to try to guess where we are in the rotation
 
@@ -269,6 +271,7 @@ def guess_current_map_rotation_positions(
 def guess_next_map_rotation_positions(
     current_map_positions: list[int], rotation: list[Map]
 ) -> list[int]:
+    """Estimate the index(es) of the next map in the rotation based off current/next map"""
     rotation_length = len(rotation)
 
     positions: list[int] = []
@@ -297,12 +300,13 @@ OPTIONS_TO_ENDPOINTS = {
 }
 
 
-def build_header(
-    app_store: AppStore, config: Config
+async def build_header(
+    app_store: AppStore, config: Config, session: aiohttp.ClientSession
 ) -> tuple[str | None, discord.Embed | None]:
+    """Build up the Discord.Embed for the header message"""
     header_embed = discord.Embed()
 
-    result = get_api_result(app_store, config, endpoint="get_status")
+    result = await get_api_result(app_store, config, session, endpoint="get_status")
     server_name = parse_server_name(result)
 
     match config.display.header.server_name:
@@ -319,20 +323,28 @@ def build_header(
 
     for option in config.display.header.embeds:
         endpoint = OPTIONS_TO_ENDPOINTS[option.value]
-        result = get_api_result(app_store, config, endpoint=endpoint)
+        result = await get_api_result(app_store, config, session, endpoint=endpoint)
         parser = ENDPOINTS_TO_PARSERS[endpoint]
         value = parser(result)
         header_embed.add_field(name=option.name, value=value, inline=option.inline)
 
+    if config.display.header.display_last_refreshed:
+        header_embed.set_footer(text=config.display.header.last_refresh_text)
+        header_embed.timestamp = datetime.now()
+
     return None, header_embed
 
 
-def build_gamestate(
-    app_store: AppStore, config: Config, endpoint: str = "get_gamestate"
+async def build_gamestate(
+    app_store: AppStore,
+    config: Config,
+    session: aiohttp.ClientSession,
+    endpoint: str = "get_gamestate",
 ) -> tuple[str | None, discord.Embed | None]:
+    """Build up the Discord.Embed for the gamestate message"""
     gamestate_embed = discord.Embed()
 
-    result = get_api_result(app_store, config, endpoint=endpoint)
+    result = await get_api_result(app_store, config, session, endpoint=endpoint)
     gamestate = parse_gamestate(result)
 
     if config.display.gamestate.image:
@@ -342,7 +354,9 @@ def build_gamestate(
 
     for option in config.display.gamestate.embeds:
         if option.value == "slots":
-            result = get_api_result(app_store, config, endpoint="get_slots")
+            result = await get_api_result(
+                app_store, config, session, endpoint="get_slots"
+            )
             slots = parse_slots(result)
             value = f"{slots.player_count}/{slots.max_players}"
         elif option.value == constants.EMPTY_EMBED:
@@ -371,19 +385,27 @@ def build_gamestate(
 
         gamestate_embed.add_field(name=option.name, value=value, inline=option.inline)
 
+    if config.display.gamestate.display_last_refreshed:
+        gamestate_embed.set_footer(text=config.display.gamestate.last_refresh_text)
+        gamestate_embed.timestamp = datetime.now()
+
     return None, gamestate_embed
 
 
-def build_map_rotation_color(
+async def build_map_rotation_color(
     app_store: AppStore,
     config: Config,
+    session: aiohttp.ClientSession,
     endpoint: str = "get_map_rotation",
 ) -> tuple[str | None, discord.Embed | None]:
-
-    result = get_api_result(app_store, config, endpoint=endpoint)
+    """Build up the content str for the map rotation color message"""
+    result = await get_api_result(app_store, config, session, endpoint=endpoint)
     map_rotation = parse_map_rotation(result)
 
-    gamestate_result = get_api_result(app_store, config, endpoint="get_gamestate")
+    gamestate_result = await get_api_result(
+        app_store, config, session, endpoint="get_gamestate"
+    )
+
     gamestate = parse_gamestate(gamestate_result)
     current_map_positions = guess_current_map_rotation_positions(
         map_rotation, gamestate["current_map"], gamestate["next_map"]
@@ -432,19 +454,29 @@ def build_map_rotation_color(
         content.append(start_block + next_map_color + "\n" + next + end_block)
         content.append(start_block + other_map_color + "\n" + other + end_block)
 
+    if config.display.map_rotation.color.display_last_refreshed:
+        content.append(
+            config.display.map_rotation.color.last_refresh_text.format(
+                int(datetime.now().timestamp())
+            )
+        )
+
     return "".join(content), None
 
 
-def build_map_rotation_emoji(
+async def build_map_rotation_embed(
     app_store: AppStore,
     config: Config,
+    session: aiohttp.ClientSession,
     endpoint: str = "get_map_rotation",
 ) -> tuple[str | None, discord.Embed | None]:
-
-    result = get_api_result(app_store, config, endpoint=endpoint)
+    """Build up the Discord.Embed for the map rotation embed message"""
+    result = await get_api_result(app_store, config, session, endpoint=endpoint)
     map_rotation = parse_map_rotation(result)
 
-    gamestate_result = get_api_result(app_store, config, endpoint="get_gamestate")
+    gamestate_result = await get_api_result(
+        app_store, config, session, endpoint="get_gamestate"
+    )
     gamestate = parse_gamestate(gamestate_result)
 
     current_map_positions = guess_current_map_rotation_positions(
@@ -454,8 +486,8 @@ def build_map_rotation_emoji(
         current_map_positions, map_rotation
     )
 
-    logger.debug(f"current map positions emoji {current_map_positions=}")
-    logger.debug(f"next map positions emoji {next_map_positions}")
+    logger.debug(f"current map positions embed {current_map_positions=}")
+    logger.debug(f"next map positions embed {next_map_positions}")
 
     map_rotation_embed = discord.Embed()
 
@@ -463,148 +495,265 @@ def build_map_rotation_emoji(
     for idx, map in enumerate(map_rotation):
         if idx in current_map_positions:
             description.append(
-                config.display.map_rotation.emoji.current_map_emoji.format(
-                    map.name, idx + 1
-                )
+                config.display.map_rotation.embed.current_map.format(map.name, idx + 1)
             )
         elif idx in next_map_positions:
             description.append(
-                config.display.map_rotation.emoji.next_map_emoji.format(
-                    map.name, idx + 1
-                )
+                config.display.map_rotation.embed.next_map.format(map.name, idx + 1)
             )
-        # other map emoji
+        # other map
         else:
             description.append(
-                config.display.map_rotation.emoji.other_map_emoji.format(
-                    map.name, idx + 1
-                )
+                config.display.map_rotation.embed.other_map.format(map.name, idx + 1)
             )
 
-    if config.display.map_rotation.emoji.display_legend:
-        description.append(config.display.map_rotation.emoji.legend)
+    if config.display.map_rotation.embed.display_legend:
+        description.append(config.display.map_rotation.embed.legend)
 
     map_rotation_embed.add_field(
-        name=config.display.map_rotation.emoji.title, value="\n".join(description)
+        name=config.display.map_rotation.embed.title, value="\n".join(description)
     )
+
+    if config.display.map_rotation.embed.display_last_refreshed:
+        map_rotation_embed.set_footer(
+            text=config.display.map_rotation.embed.last_refresh_text
+        )
+        map_rotation_embed.timestamp = datetime.now()
 
     return None, map_rotation_embed
 
 
-def build_default_message_ids(default_value: int = 0) -> tomlkit.TOMLDocument:
-    message_ids = tomlkit.document()
-    table = tomlkit.table()
-    table.add("header", default_value)
-    table.add("gamestate", default_value)
-    table.add("map_rotation_color", default_value)
-    table.add("map_rotation_emoji", default_value)
-    message_ids.add("message_ids", table)
+async def get_message_ids(app_store: AppStore, config: Config) -> tomlkit.TOMLDocument:
+    if not (message_ids := app_store.message_ids):
+        try:
+            message_ids = await load_message_ids_from_disk(app_store)
+        except FileNotFoundError:
+            logger.warning(f"{app_store.server_identifier} config file not found.")
 
+        message_ids = validate_message_ids_format(
+            app_store.server_identifier, message_ids
+        )
+        app_store.message_ids = message_ids
+    return message_ids
+
+
+async def load_message_ids_from_disk(
+    app_store: AppStore,
+    path: str | None = None,
+    filename: str | None = None,
+) -> tomlkit.TOMLDocument:
+    if not path:
+        path = constants.MESSAGES_DIR
+
+    if not filename:
+        filename = app_store.server_identifier
+
+    file = Path(path, filename)
+    logger.info(f"Loading message IDs from {file}")
+    async with aiofiles.open(file, mode="r") as fp:
+        contents = await fp.read()
+
+    message_ids = tomlkit.loads(contents)
+    logger.info(f"Loaded message IDs={message_ids}")
     return message_ids
 
 
 def validate_message_ids_format(
-    doc: tomlkit.TOMLDocument, format=constants.MESSAGE_ID_FORMAT
-) -> None:
+    server_identifier: str,
+    message_ids: tomlkit.TOMLDocument | None,
+    format: MessageIDFormat = constants.MESSAGE_ID_FORMAT,
+    default_value: int = constants.NONE_MESSAGE_ID,
+) -> tomlkit.TOMLDocument:
+    """Validate the structure of saved message IDs and create defaults for missing keys"""
     # TODO include file name for better error messages
-    table = doc.get(format["table_name"])
 
-    if format["table_name"] not in doc:
-        raise ValueError("Invalid Message IDs")
+    if message_ids is None:
+        logger.warning(
+            f"{server_identifier} No message IDs passed, creating a new TOML document"
+        )
+        message_ids = tomlkit.document()
+
+    table_name = format["table_name"]
+    table = message_ids.get(table_name)
+    if table is None:
+        logger.warning(
+            f"{server_identifier} {table_name=} missing, creating a new table"
+        )
+        table = tomlkit.table()
+        message_ids.add(table_name, table)
 
     for field in format["fields"]:
         if field not in table:
-            raise ValueError("Invalid Message IDs")
+            logger.warning(
+                f"{server_identifier} Creating missing {field=} with {default_value=}"
+            )
+            message_ids[table_name].add(field, default_value)
+        if field not in constants.MESSAGE_ID_FORMAT["fields"]:
+            logger.error(
+                f"{server_identifier} Unknown field {field} in saved message IDs"
+            )
+
+    return message_ids
 
 
-def handle_webhook(
-    type: str,
-    webhook: discord.SyncWebhook,
+async def handle_webhook(
+    key: str,
+    webhook: discord.Webhook,
     message_id: int | None = None,
     embed: discord.Embed | None = None,
     content: str | None = None,
-) -> int | None:
-
+) -> int:
+    """Send the content/embed for a given webhook and return the message ID"""
     if content is None:
         content = ""
 
+    # TODO: handle rate limiting
+    # TODO: abstract better so we can try/catch exceptions in one place
+
     if message_id:
         try:
-            logger.info(f"Editing {type} webhook message message ID={message_id}")
-            webhook.edit_message(message_id=message_id, content=content, embed=embed)
+            logger.info(f"Editing {key} message ID={message_id}")
+            await webhook.edit_message(
+                message_id=message_id, content=content, embed=embed
+            )
         except discord.errors.NotFound:
+            logger.warning(f"Tried to edit non-existent {key} message ID={message_id}")
             message_id = None
 
     if not message_id:
-        logger.info(f"Creating new {type} webhook message")
-        message = webhook.send(content=content, embed=embed, wait=True)
+        logger.info(f"Creating new {key} webhook message")
+        if embed:
+            message = await webhook.send(content=content, embed=embed, wait=True)
+        else:
+            message = await webhook.send(content=content, wait=True)
         message_id = message.id
 
     return message_id
 
 
-def get_message_ids(app_store: AppStore, config: Config) -> tomlkit.TOMLDocument:
-    try:
-        message_ids = load_message_ids(app_store, config)
-    except FileNotFoundError:
-        message_ids = build_default_message_ids()
+async def update_hook_for_section(
+    app_store: AppStore,
+    config: Config,
+    webhook: discord.Webhook,
+    session: aiohttp.ClientSession,
+    table_name: str,
+    key: str,
+    message_id: int | None,
+    content_embed_creator_func: Callable,
+) -> None:
+    """Infinitely update/sleep between refreshes for a specific section"""
+    while True:
+        start_time = time.perf_counter_ns()
+        content, embed = await content_embed_creator_func(app_store, config, session)
+        message_id = await handle_webhook(
+            key, webhook, message_id, content=content, embed=embed
+        )
+        if message_id:
+            await save_message_id(
+                app_store, table_name=table_name, key=key, message_id=message_id
+            )
 
-    try:
-        validate_message_ids_format(message_ids)
-    except ValueError:
-        message_ids = build_default_message_ids()
+        await save_message_ids_to_disk(app_store, config)
+        end_time = time.perf_counter_ns()
+        elapsed_time_ns = end_time - start_time
+        factor = 1_000_000_000
+        refresh_delay: int = config.discord.time_between_refreshes
+        refresh_delay_ns = refresh_delay * factor
+        time_to_sleep = round((refresh_delay_ns - elapsed_time_ns) / factor, ndigits=0)
+        logger.info(
+            f"Sleeping {app_store.server_identifier}.{key} for {time_to_sleep} seconds"
+        )
+        await asyncio.sleep(time_to_sleep)
 
-    app_store.message_ids = message_ids
-    return message_ids
 
-
-def main():
-
-    configs: list[tuple[AppStore, Config]] = []
+async def main():
+    """Load all the config files create asyncio tasks"""
+    servers: list[tuple[AppStore, Config]] = []
     for file_path in Path(constants.CONFIG_DIR).iterdir():
         config = load_config(file_path)
         app_store = AppStore(server_identifier=file_path.name)
-        configs.append((app_store, config))
+        servers.append((app_store, config))
 
-    for app_store, config in configs:
-        webhook = discord.SyncWebhook.from_url(config.discord.webhook_url)
+    async with aiohttp.ClientSession() as session:
+        server_sections = []
+        for app_store, config in servers:
+            webhook = discord.Webhook.from_url(
+                config.discord.webhook_url, session=session
+            )
+            message_ids = await get_message_ids(app_store, config)
+            message_ids = await load_message_ids_from_disk(app_store)
+            table_name = constants.MESSAGE_ID_FORMAT["table_name"]
 
-        table_name = "message_ids"
-        to_process = (
-            (config.display.header.enabled, table_name, "header", build_header),
-            (
-                config.display.gamestate.enabled,
-                table_name,
-                "gamestate",
+            sections: list[
+                tuple[
+                    AppStore,
+                    Config,
+                    discord.Webhook,
+                    aiohttp.ClientSession,
+                    str,
+                    str,
+                    int,
+                    Callable,
+                ]
+            ] = []
+
+            callables = (
+                build_header,
                 build_gamestate,
-            ),
-            (
-                config.display.map_rotation.color.enabled,
-                table_name,
-                "map_rotation_color",
                 build_map_rotation_color,
-            ),
-            (
+                build_map_rotation_embed,
+            )
+            keys = ("header", "gamestate", "map_rotation_color", "map_rotation_embed")
+            enableds = (
+                config.display.header.enabled,
+                config.display.gamestate.enabled,
                 config.display.map_rotation.color.enabled,
-                table_name,
-                "map_rotation_emoji",
-                build_map_rotation_emoji,
-            ),
-        )
+                config.display.map_rotation.embed.enabled,
+            )
 
-        for enabled, table, key, func in to_process:
-            if enabled:
-                message_ids = get_message_ids(app_store, config)
-                content, embed = func(app_store, config)
-                message_id: int | None = message_ids[table].get(key)
-                message_id = handle_webhook(
-                    key, webhook, message_id, content=content, embed=embed
-                )
-                if message_id:
-                    save_message_id(app_store, table=table, key=key, value=message_id)
+            for callable, key, enabled in zip(callables, keys, enableds):
+                if enabled:
+                    sections.append(
+                        (
+                            app_store,
+                            config,
+                            webhook,
+                            session,
+                            table_name,
+                            key,
+                            message_ids[table_name][key],
+                            callable,
+                        )
+                    )
 
-                persist_message_ids(app_store, config)
+            server_sections.append(sections)
+
+        async with asyncio.taskgroups.TaskGroup() as tg:
+            for server_section in server_sections:
+                for section in server_section:
+                    (
+                        app_store,
+                        config,
+                        webhook,
+                        session,
+                        table_name,
+                        key,
+                        message_id,
+                        func,
+                    ) = section
+                    tg.create_task(
+                        update_hook_for_section(
+                            app_store,
+                            config,
+                            webhook,
+                            session,
+                            table_name,
+                            key,
+                            message_id,
+                            func,
+                        )
+                    )
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
