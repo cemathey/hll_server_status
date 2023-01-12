@@ -6,6 +6,11 @@ NONE_MESSAGE_ID = 0
 SESSION_ID_COOKIE = "sessionid"
 CONFIG_DIR = "config/"
 MESSAGES_DIR = "messages/"
+LOG_DIR = "logs/"
+LOG_EXTENSION = ".log"
+LOG_SIZE_BYTES = 5000000
+LOG_COUNT = 2
+
 
 API_PREFIX = "api/"
 MAP_PICTURES = "maps/"
@@ -35,6 +40,8 @@ COLOR_TO_CODE_BLOCK = {
     "orange": "ebnf",  # fix ldif mathematica
     "gray": "bf",  # flix
 }
+
+BETWEEN_MATCHES_MAP_NAME = "Untitled"
 
 ALL_MAPS = (
     "carentan_offensive_ger",
@@ -84,6 +91,7 @@ ALL_MAPS = (
 )
 
 LONG_HUMAN_MAP_NAMES = {
+    "Untitled": "End of Match",
     "carentan_offensive_ger": "Carentan Offensive GER",
     "carentan_offensive_us": "Carentan Offensive US",
     "carentan_warfare": "Carentan",
@@ -199,3 +207,20 @@ US_MAPS = (
 )
 
 # TODO: Update with British maps on U14 release
+
+SCORE_EMBEDS = (
+    "TOP_KILLERS",
+    "TOP_RATIO",
+    "TOP_PERFORMANCE",
+    "TRY_HARDERS",
+    "TOP_STAMINA",
+    "TOP_KILL_STREAK",
+    "I_NEVER_GIVE_UP",
+    "MOST_PATIENT",
+    "I_M_CLUMSY",
+    "I_NEED_GLASSES",
+    "I_LOVE_VOTING",
+    "WHAT_IS_A_BREAK",
+    "SURVIVORS",
+    "U_R_STILL_A_MAN",
+)

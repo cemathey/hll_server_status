@@ -6,6 +6,8 @@ from typing import NotRequired, TypedDict
 import aiohttp
 import pydantic
 import tomlkit
+import re
+import logging
 
 from hll_server_status import constants
 
@@ -32,6 +34,11 @@ class Map(pydantic.BaseModel):
 
     @pydantic.validator("raw_name")
     def must_be_valid_map_name(cls, v):
+        map_change_pattern = r"Untitled_\d+"
+
+        if re.match(map_change_pattern, v):
+            return constants.BETWEEN_MATCHES_MAP_NAME
+
         if v not in constants.ALL_MAPS:
             raise ValueError("Invalid Map Name")
 
@@ -85,7 +92,7 @@ class Cookies(TypedDict):
 @dataclass
 class AppStore:
     server_identifier: str
-    # session: aiohttp.ClientSession
+    logger: logging.Logger
     message_ids: tomlkit.TOMLDocument = field(default_factory=tomlkit.TOMLDocument)
     cookies: Cookies = field(default_factory=Cookies)
 
@@ -103,17 +110,11 @@ class DiscordConfig(pydantic.BaseModel):
     webhook_url: pydantic.HttpUrl
     time_between_refreshes: pydantic.conint(ge=1)
 
-    def as_dict(self):
-        return {"webhook_url": self.webhook_url}
-
 
 class APIConfig(pydantic.BaseModel):
     base_server_url: str
     username: str
     password: str
-
-    def as_dict(self):
-        return {"base_server_url": self.base_server_url}
 
 
 class DisplayEmbedConfig(pydantic.BaseModel):
@@ -128,13 +129,6 @@ class DisplayEmbedConfig(pydantic.BaseModel):
 
         return v
 
-    def as_dict(self):
-        return {
-            "name": self.name,
-            "value": self.value,
-            "inline": self.inline,
-        }
-
 
 class GamestateEmbedConfig(pydantic.BaseModel):
     name: str
@@ -148,13 +142,6 @@ class GamestateEmbedConfig(pydantic.BaseModel):
             raise ValueError(f"Invalid [[display.gamestate]] embed {v}")
 
         return v
-
-    def as_dict(self):
-        return {
-            "name": self.name,
-            "value": self.value,
-            "inline": self.inline,
-        }
 
 
 class DisplayHeaderConfig(pydantic.BaseModel):
@@ -173,13 +160,6 @@ class DisplayHeaderConfig(pydantic.BaseModel):
 
         return v
 
-    def as_dict(self):
-        return {
-            "enabled": self.enabled,
-            "name": self.server_name,
-            "embeds": [embed.as_dict() for embed in self.embeds],
-        }
-
 
 class DisplayGamestateConfig(pydantic.BaseModel):
     enabled: bool
@@ -190,13 +170,6 @@ class DisplayGamestateConfig(pydantic.BaseModel):
     display_last_refreshed: bool
     last_refresh_text: str
     embeds: list[GamestateEmbedConfig]
-
-    def as_dict(self):
-        return {
-            "enabled": self.enabled,
-            "image": self.image,
-            "embeds": [embed.as_dict() for embed in self.embeds],
-        }
 
 
 class DisplayMapRotationColorConfig(pydantic.BaseModel):
@@ -238,17 +211,27 @@ class DisplayConfigMapRotation(pydantic.BaseModel):
     embed: DisplayMapRotationEmbedConfig
 
 
+# class ScoreEmbedConfig(pydantic.BaseModel):
+#     name: str
+#     value: str
+#     inline: bool
+
+#     @pydantic.validator("value")
+#     def must_be_valid_embed(cls, v):
+#         if v not in constants.SCORE_EMBEDS:
+#             raise ValueError(f"Invalid [[display.score]] embed {v}")
+
+#         return v
+
+# class DisplayConfigScore(pydantic.BaseModel):
+#     enabled: bool
+#     embeds: list[ScoreEmbedConfig]
+
+
 class DisplayConfig(pydantic.BaseModel):
     header: DisplayHeaderConfig
     gamestate: DisplayGamestateConfig
     map_rotation: DisplayConfigMapRotation
-
-    # def as_dict(self):
-    #     return {
-    #         "header": self.header.as_dict(),
-    #         "gamestate": self.gamestate.as_dict(),
-    #         "map_rotation": self.map_rotation.as_dict(),
-    #     }
 
 
 class Config(pydantic.BaseModel):
@@ -256,10 +239,3 @@ class Config(pydantic.BaseModel):
     discord: DiscordConfig
     api: APIConfig
     display: DisplayConfig
-
-    # def as_dict(self):
-    #     return {
-    #         "discord": self.discord.as_dict(),
-    #         "api": self.api.as_dict(),
-    #         "display": self.display.as_dict(),
-    #     }

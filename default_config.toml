@@ -72,15 +72,15 @@ last_refresh_text = "Last refreshed"
 # inline = true will put fields on the same line until cleared with another field
 # that has inline = false set
 [[display.gamestate.embeds]]
-name = "Allied"
+name = "Allied Players"
 value = "num_allied_players"
 inline = true
 [[display.gamestate.embeds]]
-name = "Axis"
+name = "Axis Players"
 value = "num_axis_players"
 inline = true
 [[display.gamestate.embeds]]
-name = "Player Count"
+name = "Total Players"
 value = "slots"
 inline = true
 [[display.gamestate.embeds]]
@@ -107,11 +107,27 @@ inline = true
 name = "Next Map"
 value = "next_map"
 inline = true
+# [[display.gamestate.embeds]]
+# name = "\u200b"
+# value = "\u200b"
+# inline = false
+# [[display.gamestate.embeds]]
+# name = "Next Map"
+# value = ""
+# inline = true
+# [[display.gamestate.embeds]]
+# name = "Winning Votes"
+# value = ""
+# inline = true
+# [[display.gamestate.embeds]]
+# name = "Total Votes"
+# value = ""
+# inline = true
 
 # Display the map rotation as a list of triple backtick ` color coded code blocks
 # https://www.technipages.com/discord-code-blocks
 [display.map_rotation.color]
-enabled = true
+enabled = false
 display_title = true
 title = "Map Rotation"
 # Valid options are: auto, cyan, green, orange, gray

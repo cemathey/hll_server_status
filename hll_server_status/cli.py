@@ -1,6 +1,7 @@
 import asyncio
 import http.cookies
 import logging
+from logging.handlers import RotatingFileHandler
 import os
 import re
 import sys
@@ -33,8 +34,8 @@ from hll_server_status.models import (
     Slots,
 )
 
-logging.basicConfig(level=os.getenv("LOGGING_LEVEL", logging.INFO), stream=sys.stdout)
-logger = logging.getLogger()
+# logging.basicConfig(level=os.getenv("LOGGING_LEVEL", logging.INFO), stream=sys.stdout)
+# logger = logging.getLogger()
 
 
 def load_config(path: Path) -> Config:
@@ -80,7 +81,7 @@ async def save_message_ids_to_disk(
         filename = app_store.server_identifier
 
     file = Path(path, filename)
-    logger.info(f"Saving message IDs to {file}")
+    app_store.logger.info(f"Saving message IDs to {file}")
     async with aiofiles.open(file, mode="w") as fp:
         toml = tomlkit.dumps(app_store.message_ids)
         await fp.write(toml)
@@ -133,6 +134,34 @@ def with_login(func: Callable):
     return inner
 
 
+def with_retry(func: Callable, retries=5):
+    """Wrapper for functions that call the CRCON API to retry failed API calls"""
+
+    @wraps(func)
+    async def inner(app_store: AppStore, *args, **kwargs):
+        result = None
+
+        for num in range(1, retries + 1):
+            try:
+                result = await func(app_store, *args, **kwargs)
+                return result
+            except aiohttp.ClientResponseError:
+                app_store.logger.error(
+                    "HTTP error when making API call to CRCON attempt"
+                )
+            except IndexError:
+                app_store.logger.error(
+                    "Received an invalid response from your CRCON Server"
+                )
+            except ValueError:
+                # logged in #get_api_result
+                pass
+            app_store.logger.error(f"Retrying attempt {num}/{retries}")
+
+    return inner
+
+
+@with_retry
 @with_login
 async def get_api_result(
     app_store: AppStore,
@@ -154,18 +183,26 @@ async def get_api_result(
     )
 
     if response.status != 200:
+        app_store.logger.error(
+            f"HTTP {response.status} for {endpoint=} for {app_store.server_identifier} {response.content=} {await response.text()=}"
+        )
         response.raise_for_status()
 
     json = await response.json()
-    try:
-        result = json["result"]
-    except IndexError:
-        raise AttributeError("Received an invalid response from your CRCON Server")
+    result = json["result"]
+
+    if result is None:
+        app_store.logger.error(
+            f"Received a None response from {endpoint} {await response.text()=}"
+        )
+        raise ValueError(
+            f"Received a None response from {endpoint} {await response.text()=}"
+        )
 
     return result
 
 
-def parse_gamestate(result: dict[str, Any]) -> GameState:
+def parse_gamestate(app_store: AppStore, result: dict[str, Any]) -> GameState:
     """Parse and validate the result of /api/get_gamestate"""
     time_remaining_pattern = re.compile(r"(\d{1}):(\d{2}):(\d{2})")
     matched = re.match(time_remaining_pattern, result["raw_time_remaining"])
@@ -180,12 +217,16 @@ def parse_gamestate(result: dict[str, Any]) -> GameState:
     try:
         result["current_map"] = Map(raw_name=result["current_map"])
     except ValueError:
-        logger.error(f"Invalid map name received current_map={result['current_map']}")
+        app_store.logger.error(
+            f"Invalid map name received current_map={result['current_map']}"
+        )
         raise
     try:
         result["next_map"] = Map(raw_name=result["next_map"])
     except ValueError:
-        logger.error(f"Invalid map name received next_map={result['next_map']}")
+        app_store.logger.error(
+            f"Invalid map name received next_map={result['next_map']}"
+        )
         raise
 
     return GameState(**result)
@@ -204,8 +245,11 @@ def parse_map_rotation(result: list[str]) -> list[Map]:
 
 def get_map_picture_url(
     config: Config, map: Map, map_prefix=constants.MAP_PICTURES
-) -> URL:
+) -> URL | None:
     """Build and validate a URL to the CRCON map image"""
+    if map.raw_name == constants.BETWEEN_MATCHES_MAP_NAME:
+        return None
+
     base_map_name, _ = map.raw_name.split("_", maxsplit=1)
     url = (
         config.api.base_server_url
@@ -239,33 +283,44 @@ def guess_current_map_rotation_positions(
     # As of U13 a map can be in a rotation more than once, but the index isn't
     # provided by RCON so we have to try to guess where we are in the rotation
 
+    # TODO: what about single map rotations
+    # TODO: use previous map to better estimate
+
+    # Between rounds
+    if current_map.raw_name == constants.BETWEEN_MATCHES_MAP_NAME:
+        return []
+
     raw_names = [map.raw_name for map in rotation]
 
-    # the current map is only in once
+    # the current map is only in once then we know exactly where we are
     if raw_names.count(current_map.raw_name) == 1:
         return [raw_names.index(current_map.raw_name)]
 
-    # the current map is in more than once
+    # the current map is in more than once, we must estimate
     # if the next map is in only once then we know exactly where we are
-    if raw_names.count(next_map.raw_name) == 1:
+    current_map_idxs = []
+    for idx in [idx for idx, name in enumerate(raw_names) if name == next_map.raw_name]:
+
+        # if raw_names.count(next_map.raw_name) == 1:
+        # next_map_idx = raw_names.index(next_map.raw_name)
+        # current_map_idx = None
+
         # have to account for wrapping from the end to the start
-        next_map_idx = raw_names.index(next_map.raw_name)
-        current_map_idx = None
-
-        # Somewhere besides the end of the rotation
-        if next_map_idx == len(raw_names) - 1:
-            current_map_idx = next_map_idx - 1
         # current map is the end of the rotation
-        elif next_map_idx == 0:
+        if idx == 0:
             current_map_idx = len(raw_names) - 1
+        # Somewhere besides the end of the rotation
         else:
-            raise ValueError("shouldn't get here")
+            current_map_idx = idx - 1
 
-        return [current_map_idx]
+        current_map_idxs.append(current_map_idx)
+        # return [current_map_idx]
+
+    return current_map_idxs
 
     # the current map is in more than once
     # and the next map is in multiple times so we can't determine where we are
-    return [idx for idx, name in enumerate(raw_names) if name == current_map.raw_name]
+    # return [idx for idx, name in enumerate(raw_names) if name == current_map.raw_name]
 
 
 def guess_next_map_rotation_positions(
@@ -304,6 +359,9 @@ async def build_header(
     app_store: AppStore, config: Config, session: aiohttp.ClientSession
 ) -> tuple[str | None, discord.Embed | None]:
     """Build up the Discord.Embed for the header message"""
+
+    # TODO: Add map vote info
+
     header_embed = discord.Embed()
 
     result = await get_api_result(app_store, config, session, endpoint="get_status")
@@ -345,12 +403,13 @@ async def build_gamestate(
     gamestate_embed = discord.Embed()
 
     result = await get_api_result(app_store, config, session, endpoint=endpoint)
-    gamestate = parse_gamestate(result)
+    gamestate = parse_gamestate(app_store, result)
 
     if config.display.gamestate.image:
-        gamestate_embed.set_image(
-            url=get_map_picture_url(config, gamestate["current_map"]).url
-        )
+        url = get_map_picture_url(config, gamestate["current_map"])
+
+        if url:
+            gamestate_embed.set_image(url=url.url)
 
     for option in config.display.gamestate.embeds:
         if option.value == "slots":
@@ -406,7 +465,7 @@ async def build_map_rotation_color(
         app_store, config, session, endpoint="get_gamestate"
     )
 
-    gamestate = parse_gamestate(gamestate_result)
+    gamestate = parse_gamestate(app_store, gamestate_result)
     current_map_positions = guess_current_map_rotation_positions(
         map_rotation, gamestate["current_map"], gamestate["next_map"]
     )
@@ -415,8 +474,8 @@ async def build_map_rotation_color(
         current_map_positions, map_rotation
     )
 
-    logger.debug(f"current map positions color {current_map_positions=}")
-    logger.debug(f"next map positions color {next_map_positions}")
+    app_store.logger.debug(f"current map positions color {current_map_positions=}")
+    app_store.logger.debug(f"next map positions color {next_map_positions}")
 
     content: list[str] = []
 
@@ -477,7 +536,7 @@ async def build_map_rotation_embed(
     gamestate_result = await get_api_result(
         app_store, config, session, endpoint="get_gamestate"
     )
-    gamestate = parse_gamestate(gamestate_result)
+    gamestate = parse_gamestate(app_store, gamestate_result)
 
     current_map_positions = guess_current_map_rotation_positions(
         map_rotation, gamestate["current_map"], gamestate["next_map"]
@@ -486,8 +545,8 @@ async def build_map_rotation_embed(
         current_map_positions, map_rotation
     )
 
-    logger.debug(f"current map positions embed {current_map_positions=}")
-    logger.debug(f"next map positions embed {next_map_positions}")
+    app_store.logger.debug(f"current map positions embed {current_map_positions=}")
+    app_store.logger.debug(f"next map positions embed {next_map_positions}")
 
     map_rotation_embed = discord.Embed()
 
@@ -528,11 +587,11 @@ async def get_message_ids(app_store: AppStore, config: Config) -> tomlkit.TOMLDo
         try:
             message_ids = await load_message_ids_from_disk(app_store)
         except FileNotFoundError:
-            logger.warning(f"{app_store.server_identifier} config file not found.")
+            app_store.logger.warning(
+                f"{app_store.server_identifier} config file not found."
+            )
 
-        message_ids = validate_message_ids_format(
-            app_store.server_identifier, message_ids
-        )
+        message_ids = validate_message_ids_format(app_store, message_ids)
         app_store.message_ids = message_ids
     return message_ids
 
@@ -549,17 +608,17 @@ async def load_message_ids_from_disk(
         filename = app_store.server_identifier
 
     file = Path(path, filename)
-    logger.info(f"Loading message IDs from {file}")
+    app_store.logger.info(f"Loading message IDs from {file}")
     async with aiofiles.open(file, mode="r") as fp:
         contents = await fp.read()
 
     message_ids = tomlkit.loads(contents)
-    logger.info(f"Loaded message IDs={message_ids}")
+    app_store.logger.info(f"Loaded message IDs={message_ids}")
     return message_ids
 
 
 def validate_message_ids_format(
-    server_identifier: str,
+    app_store: AppStore,
     message_ids: tomlkit.TOMLDocument | None,
     format: MessageIDFormat = constants.MESSAGE_ID_FORMAT,
     default_value: int = constants.NONE_MESSAGE_ID,
@@ -568,41 +627,42 @@ def validate_message_ids_format(
     # TODO include file name for better error messages
 
     if message_ids is None:
-        logger.warning(
-            f"{server_identifier} No message IDs passed, creating a new TOML document"
+        app_store.logger.warning(
+            f"{app_store.server_identifier} No message IDs passed, creating a new TOML document"
         )
         message_ids = tomlkit.document()
 
     table_name = format["table_name"]
     table = message_ids.get(table_name)
     if table is None:
-        logger.warning(
-            f"{server_identifier} {table_name=} missing, creating a new table"
+        app_store.logger.warning(
+            f"{app_store.server_identifier} {table_name=} missing, creating a new table"
         )
         table = tomlkit.table()
         message_ids.add(table_name, table)
 
     for field in format["fields"]:
         if field not in table:
-            logger.warning(
-                f"{server_identifier} Creating missing {field=} with {default_value=}"
+            app_store.logger.warning(
+                f"{app_store.server_identifier} Creating missing {field=} with {default_value=}"
             )
             message_ids[table_name].add(field, default_value)
         if field not in constants.MESSAGE_ID_FORMAT["fields"]:
-            logger.error(
-                f"{server_identifier} Unknown field {field} in saved message IDs"
+            app_store.logger.error(
+                f"{app_store.server_identifier} Unknown field {field} in saved message IDs"
             )
 
     return message_ids
 
 
 async def handle_webhook(
+    app_store: AppStore,
     key: str,
     webhook: discord.Webhook,
     message_id: int | None = None,
     embed: discord.Embed | None = None,
     content: str | None = None,
-) -> int:
+) -> int | None:
     """Send the content/embed for a given webhook and return the message ID"""
     if content is None:
         content = ""
@@ -611,22 +671,28 @@ async def handle_webhook(
     # TODO: abstract better so we can try/catch exceptions in one place
 
     if message_id:
-        try:
-            logger.info(f"Editing {key} message ID={message_id}")
-            await webhook.edit_message(
-                message_id=message_id, content=content, embed=embed
-            )
-        except discord.errors.NotFound:
-            logger.warning(f"Tried to edit non-existent {key} message ID={message_id}")
-            message_id = None
-
-    if not message_id:
-        logger.info(f"Creating new {key} webhook message")
+        log_message = f"Editing {key} message ID={message_id}"
+        func = partial(
+            webhook.edit_message, message_id=message_id, content=content, embed=embed
+        )
+    else:
+        log_message = f"Creating new {key} webhook message"
         if embed:
-            message = await webhook.send(content=content, embed=embed, wait=True)
+            func = partial(webhook.send, content=content, embed=embed, wait=True)
         else:
-            message = await webhook.send(content=content, wait=True)
+            func = partial(webhook.send, content=content, wait=True)
+
+    try:
+        app_store.logger.info(log_message)
+        message = await func()
         message_id = message.id
+    except discord.errors.NotFound:
+        app_store.logger.warning(
+            f"Tried to edit non-existent {key} message ID={message_id}"
+        )
+        message_id = None
+    except discord.errors.RateLimited:
+        app_store.logger.warning(f"This message was rate limited by Discord")
 
     return message_id
 
@@ -646,7 +712,7 @@ async def update_hook_for_section(
         start_time = time.perf_counter_ns()
         content, embed = await content_embed_creator_func(app_store, config, session)
         message_id = await handle_webhook(
-            key, webhook, message_id, content=content, embed=embed
+            app_store, key, webhook, message_id, content=content, embed=embed
         )
         if message_id:
             await save_message_id(
@@ -660,7 +726,7 @@ async def update_hook_for_section(
         refresh_delay: int = config.discord.time_between_refreshes
         refresh_delay_ns = refresh_delay * factor
         time_to_sleep = round((refresh_delay_ns - elapsed_time_ns) / factor, ndigits=0)
-        logger.info(
+        app_store.logger.info(
             f"Sleeping {app_store.server_identifier}.{key} for {time_to_sleep} seconds"
         )
         await asyncio.sleep(time_to_sleep)
@@ -670,8 +736,19 @@ async def main():
     """Load all the config files create asyncio tasks"""
     servers: list[tuple[AppStore, Config]] = []
     for file_path in Path(constants.CONFIG_DIR).iterdir():
+        logging.basicConfig(
+            level=os.getenv("LOGGING_LEVEL", logging.INFO), stream=sys.stdout
+        )
+        print(f"{Path(constants.LOG_DIR, file_path.stem + constants.LOG_EXTENSION)}")
+        logger = logging.getLogger()
+        handler = RotatingFileHandler(
+            filename=Path(constants.LOG_DIR, file_path.stem + constants.LOG_EXTENSION),
+            maxBytes=constants.LOG_SIZE_BYTES,
+            backupCount=constants.LOG_COUNT,
+        )
+        logger.addHandler(handler)
         config = load_config(file_path)
-        app_store = AppStore(server_identifier=file_path.name)
+        app_store = AppStore(server_identifier=file_path.name, logger=logger)
         servers.append((app_store, config))
 
     async with aiohttp.ClientSession() as session:
@@ -757,3 +834,10 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+# TODO: add Dockerfile for deployment
+# TODO: Update README
+# TODO: /api/get_gamestate 500 on map change?
+
+# Future
+# TODO: add score sections
