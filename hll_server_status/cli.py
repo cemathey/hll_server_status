@@ -732,8 +732,17 @@ async def update_hook_for_section(
         await asyncio.sleep(time_to_sleep)
 
 
+def bootstrap(directories=constants.MANDATORY_DIRECTORIES):
+    for directory in directories:
+        try:
+            Path(directory).mkdir(exist_ok=True)
+        except FileNotFoundError:
+            sys.exit(1)
+
+
 async def main():
     """Load all the config files create asyncio tasks"""
+    bootstrap()
     servers: list[tuple[AppStore, Config]] = []
     for file_path in Path(constants.CONFIG_DIR).iterdir():
         logging.basicConfig(
@@ -758,7 +767,6 @@ async def main():
                 config.discord.webhook_url, session=session
             )
             message_ids = await get_message_ids(app_store, config)
-            message_ids = await load_message_ids_from_disk(app_store)
             table_name = constants.MESSAGE_ID_FORMAT["table_name"]
 
             sections: list[
