@@ -1,13 +1,13 @@
+import http.cookies
 import json
+import logging
+import re
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import NotRequired, TypedDict
 
-import aiohttp
 import pydantic
 import tomlkit
-import re
-import logging
 
 from hll_server_status import constants
 
@@ -86,7 +86,11 @@ class LoginParameters(pydantic.BaseModel):
 
 
 class Cookies(TypedDict):
-    sessionid: NotRequired[str]
+    sessionid: NotRequired[http.cookies.Morsel[str]]
+
+
+def default_cookies() -> Cookies:
+    return {}
 
 
 @dataclass
@@ -95,7 +99,7 @@ class AppStore:
     logger: logging.Logger
     logging_in: bool = field(default_factory=lambda: False)
     message_ids: tomlkit.TOMLDocument = field(default_factory=tomlkit.TOMLDocument)
-    cookies: Cookies = field(default_factory=Cookies)
+    cookies: Cookies = field(default_factory=default_cookies)
 
 
 class URL(pydantic.BaseModel):
@@ -109,7 +113,8 @@ class OutputConfig(pydantic.BaseModel):
 
 class DiscordConfig(pydantic.BaseModel):
     webhook_url: pydantic.HttpUrl
-    time_between_refreshes: pydantic.conint(ge=1)
+    # pylance complains about this even though it's valid with pydantic
+    time_between_refreshes: pydantic.conint(ge=1)  # type: ignore
 
 
 class APIConfig(pydantic.BaseModel):
@@ -210,23 +215,6 @@ class DisplayMapRotationEmbedConfig(pydantic.BaseModel):
 class DisplayConfigMapRotation(pydantic.BaseModel):
     color: DisplayMapRotationColorConfig
     embed: DisplayMapRotationEmbedConfig
-
-
-# class ScoreEmbedConfig(pydantic.BaseModel):
-#     name: str
-#     value: str
-#     inline: bool
-
-#     @pydantic.validator("value")
-#     def must_be_valid_embed(cls, v):
-#         if v not in constants.SCORE_EMBEDS:
-#             raise ValueError(f"Invalid [[display.score]] embed {v}")
-
-#         return v
-
-# class DisplayConfigScore(pydantic.BaseModel):
-#     enabled: bool
-#     embeds: list[ScoreEmbedConfig]
 
 
 class DisplayConfig(pydantic.BaseModel):
