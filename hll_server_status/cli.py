@@ -78,7 +78,7 @@ async def save_message_ids_to_disk(
         path = constants.MESSAGES_DIR
 
     if not filename:
-        filename = app_store.server_identifier
+        filename = app_store.server_identifier + ".toml"
 
     file = Path(path, filename)
     app_store.logger.info(f"Saving message IDs to {file}")
@@ -588,7 +588,7 @@ async def get_message_ids(app_store: AppStore, config: Config) -> tomlkit.TOMLDo
             message_ids = await load_message_ids_from_disk(app_store)
         except FileNotFoundError:
             app_store.logger.warning(
-                f"{app_store.server_identifier} config file not found."
+                f"{app_store.server_identifier}.toml config file not found."
             )
 
         message_ids = validate_message_ids_format(app_store, message_ids)
@@ -605,7 +605,7 @@ async def load_message_ids_from_disk(
         path = constants.MESSAGES_DIR
 
     if not filename:
-        filename = app_store.server_identifier
+        filename = app_store.server_identifier + ".toml"
 
     file = Path(path, filename)
     app_store.logger.info(f"Loading message IDs from {file}")
@@ -732,33 +732,54 @@ async def update_hook_for_section(
         await asyncio.sleep(time_to_sleep)
 
 
-def bootstrap(directories=constants.MANDATORY_DIRECTORIES):
+def bootstrap(logger: logging.Logger, directories=constants.MANDATORY_DIRECTORIES):
     for directory in directories:
         try:
             Path(directory).mkdir(exist_ok=True)
         except FileNotFoundError:
+            logger.error(f"Unable to create {directory}")
             sys.exit(1)
 
 
 async def main():
     """Load all the config files create asyncio tasks"""
-    bootstrap()
+    formatter = logging.Formatter("%(asctime)s:%(levelname)s:%(message)s")
+
+    root_logger = logging.getLogger(constants.ROOT_LOGGER_NAME)
+    root_logger.setLevel(os.getenv("LOGGING_LEVEL", logging.INFO))
+    file_handler = RotatingFileHandler(
+        filename=Path(
+            constants.LOG_DIR, constants.ROOT_LOGGER_NAME + constants.LOG_EXTENSION
+        ),
+        maxBytes=constants.LOG_SIZE_BYTES,
+        backupCount=constants.LOG_COUNT,
+    )
+    console_handler = logging.StreamHandler(stream=sys.stderr)
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
+    bootstrap(root_logger)
     servers: list[tuple[AppStore, Config]] = []
     for file_path in Path(constants.CONFIG_DIR).iterdir():
-        logging.basicConfig(
-            level=os.getenv("LOGGING_LEVEL", logging.INFO), stream=sys.stdout
-        )
-        print(f"{Path(constants.LOG_DIR, file_path.stem + constants.LOG_EXTENSION)}")
-        logger = logging.getLogger()
+        root_logger.info(f"Reading config file for {file_path}")
+        logger = logging.getLogger(file_path.stem)
+        logger.setLevel(os.getenv("LOGGING_LEVEL", logging.INFO))
         handler = RotatingFileHandler(
             filename=Path(constants.LOG_DIR, file_path.stem + constants.LOG_EXTENSION),
             maxBytes=constants.LOG_SIZE_BYTES,
             backupCount=constants.LOG_COUNT,
         )
+        handler.setFormatter(formatter)
         logger.addHandler(handler)
         config = load_config(file_path)
-        app_store = AppStore(server_identifier=file_path.name, logger=logger)
+        app_store = AppStore(server_identifier=file_path.stem, logger=logger)
         servers.append((app_store, config))
+
+    if not servers:
+        root_logger.error(
+            f"No config files found add one or more to {constants.LOG_DIR} "
+        )
 
     async with aiohttp.ClientSession() as session:
         server_sections = []
@@ -826,6 +847,9 @@ async def main():
                         message_id,
                         func,
                     ) = section
+                    root_logger.info(
+                        f"Starting {app_store.server_identifier}:{key} check log files for further output"
+                    )
                     tg.create_task(
                         update_hook_for_section(
                             app_store,

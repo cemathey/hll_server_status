@@ -6,6 +6,7 @@ NONE_MESSAGE_ID = 0
 SESSION_ID_COOKIE = "sessionid"
 
 
+ROOT_LOGGER_NAME = "hll_server_status"
 CONFIG_DIR = "config/"
 MESSAGES_DIR = "messages/"
 LOG_DIR = "logs/"
