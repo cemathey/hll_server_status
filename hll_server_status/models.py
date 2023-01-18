@@ -93,6 +93,7 @@ class Cookies(TypedDict):
 class AppStore:
     server_identifier: str
     logger: logging.Logger
+    logging_in: bool = field(default_factory=lambda: False)
     message_ids: tomlkit.TOMLDocument = field(default_factory=tomlkit.TOMLDocument)
     cookies: Cookies = field(default_factory=Cookies)
 

@@ -124,9 +124,13 @@ def with_login(func: Callable):
         username = config.api.username
         password = config.api.password
 
-        if not app_store.cookies.get("sessionid", None):
+        if not app_store.cookies.get("sessionid", None) and not app_store.logging_in:
+            app_store.logging_in = True
             app_store.cookies["sessionid"] = await login(
                 config, session, username, password
+            )
+            app_store.logger.info(
+                f"Logged in with session ID: {app_store.cookies['sessionid']}"
             )
 
         return await func(app_store, config, session, *args, **kwargs)
@@ -134,7 +138,7 @@ def with_login(func: Callable):
     return inner
 
 
-def with_retry(func: Callable, retries=5):
+def with_retry(func: Callable, retries=10, delay_between_retries=1):
     """Wrapper for functions that call the CRCON API to retry failed API calls"""
 
     @wraps(func)
@@ -145,10 +149,18 @@ def with_retry(func: Callable, retries=5):
             try:
                 result = await func(app_store, *args, **kwargs)
                 return result
-            except aiohttp.ClientResponseError:
-                app_store.logger.error(
-                    "HTTP error when making API call to CRCON attempt"
-                )
+            except aiohttp.ClientResponseError as e:
+                if e.status == 401:
+                    app_store.logger.error(
+                        "HTTP 401 (Unathorized) error, attempting to log in again"
+                    )
+                    app_store.cookies.pop("sessionid", None)
+                    app_store.logging_in = False
+                else:
+                    app_store.logger.error(
+                        f"HTTP error {e.status} when making API call to CRCON attempt"
+                    )
+
             except IndexError:
                 app_store.logger.error(
                     "Received an invalid response from your CRCON Server"
@@ -156,7 +168,10 @@ def with_retry(func: Callable, retries=5):
             except ValueError:
                 # logged in #get_api_result
                 pass
-            app_store.logger.error(f"Retrying attempt {num}/{retries}")
+            app_store.logger.error(
+                f"Retrying attempt {num}/{retries}, waiting {delay_between_retries} seconds."
+            )
+            await asyncio.sleep(delay_between_retries)
 
     return inner
 
