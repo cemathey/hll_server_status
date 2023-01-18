@@ -1,16 +1,20 @@
 [output]
-# Directory/filename to save existing message IDs
-# You can delete these files or hand edit them as needed to fix problems
+# Directory/filename to save existing Discord message IDs
+# You can delete these files (new messages will be created)
+# or hand edit them as needed to fix problems
 # If the file doesn't exist the tool will create new messages
+# Leave blank to use the defaults (recommended)
 message_id_directory = ""
 message_id_filename = ""
 
 [discord]
 webhook_url = ""
+# In seconds, there is a lower limit on how fast you can refresh
+# as determined by the delay time between calling your CRCON and then sending the message to Discord
 time_between_refreshes = 5
 
 [api]
-# The URL or IP address of your RCON
+# The URL or IP address of your CRCON
 base_server_url = ""
 # Your CRCON username and password
 username = ""
@@ -21,13 +25,14 @@ password = ""
 # An embed to display some summary information about your server
 [display.header]
 enabled = true
-# Valid options are: "name" or "short_name" as set in your CRCON setup
+# Valid options are: "name" or "short_name", will display as it is set in your CRCON configuration
 server_name = "name"
 # Your steam quick connect URL, set to "" to disable
 quick_connect_url = ""
 # Your BattleMetrics server URL, set to "" to disable
 battlemetrics_url = ""
 
+# Include the last refresh time in the footer of the message
 display_last_refreshed = true
 last_refresh_text = "Last refreshed"
 
@@ -36,8 +41,7 @@ last_refresh_text = "Last refreshed"
 # value must be one of ["reserved_vip_slots", "current_vips"]
 # Discord does not allow sending an empty name or value
 # but you can use a zero width space "\u200b" with inline = false to skip a line
-# inline = true will put fields on the same line until cleared with another field
-# that has inline = false set
+# inline = true will put fields on the same line until cleared with another field that has inline = false set
 [[display.header.embeds]]
 name = "Reserved VIP Slots"
 value = "reserved_vip_slots"
@@ -47,6 +51,7 @@ name = "Current VIPs"
 value = "current_vips"
 inline = true
 
+# An embed to show information about the current match
 [display.gamestate]
 enabled = true
 # Include the CRCON map picture or not
@@ -56,17 +61,20 @@ image = true
 # Allied score is {0} and Axis score is {1}
 # You can either use `score_format` as a generic one, or set per faction ones
 # `score_format` will be used if the more specific ones are not set
-# Set to "" if you don't want a more specific one
+# Set to "" if you don't want to use the more specific ones 
 score_format = "Allied {0} : Axis {1}"
 score_format_ger_us = "<:icoT_US:1060219985215094804> {0} : <:icoT_GER:1060219972871278602> {1}"
 score_format_ger_rus = "<:icoT_RUS:1060217170455433286> {0} : <:icoT_GER:1060219972871278602> {1}"
 
+# Include the last refresh time in the footer of the message
 display_last_refreshed = true
 last_refresh_text = "Last refreshed"
 
 # A list of Discord Embeds for values from the CRCON API get_gamestate call
 # name is the text you will see in Discord for the field title
-# value must be a field returned by `get_gamestate`
+# value must be a field returned by the `get_gamestate` API endpoint:
+# (num_allied_players, num_axis_players, allied_score, axis_score, time_remaining, raw_time_remaining,
+#  current_map, or next_map)
 # Discord does not allow sending an empty name or value
 # but you can use a zero width space "\u200b" with inline = false to skip a line
 # inline = true will put fields on the same line until cleared with another field
@@ -107,22 +115,7 @@ inline = true
 name = "Next Map"
 value = "next_map"
 inline = true
-# [[display.gamestate.embeds]]
-# name = "\u200b"
-# value = "\u200b"
-# inline = false
-# [[display.gamestate.embeds]]
-# name = "Next Map"
-# value = ""
-# inline = true
-# [[display.gamestate.embeds]]
-# name = "Winning Votes"
-# value = ""
-# inline = true
-# [[display.gamestate.embeds]]
-# name = "Total Votes"
-# value = ""
-# inline = true
+
 
 # Display the map rotation as a list of triple backtick ` color coded code blocks
 # https://www.technipages.com/discord-code-blocks
@@ -141,6 +134,8 @@ legend_title = """
 Legend
 """
 legend = ["Current Map", "Next Map", "Other Maps"]
+
+# Include the last refresh time in the footer of the message
 display_last_refreshed = true
 last_refresh_text = """
 Last refreshed <t:{0}:R>
@@ -151,11 +146,12 @@ Last refreshed <t:{0}:R>
 enabled = true
 display_title = true
 title = "Map Rotation"
-# Map name is {0} and index is {1}
+# Map name is {0} and index is {1}, you can use any Discord recognized mark down for bold/italic/etc.
 current_map = "🟩 {1}. **{0}**"
 next_map = "🟨 {1}. {0}"
 other_map = "⬛ {1}. {0}"
 display_legend = true
+# This must be manually updated and should match the emojis or formatting you use above or it won't make sense
 legend = """
 
 Legend
@@ -163,5 +159,7 @@ Legend
 🟨 - Next Map
 ⬛ - Other Maps
 """
+
+# Include the last refresh time in the footer of the message
 display_last_refreshed = true
 last_refresh_text = "Last refreshed"
