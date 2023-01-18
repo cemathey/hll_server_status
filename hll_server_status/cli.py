@@ -691,8 +691,11 @@ async def handle_webhook(
             f"Tried to edit non-existent {key} message ID={message_id}"
         )
         message_id = None
-    except discord.errors.RateLimited:
-        app_store.logger.warning(f"This message was rate limited by Discord")
+    except discord.errors.RateLimited as e:
+        app_store.logger.warning(
+            f"This message was rate limited by Discord retrying after {e.retry_after:.2f} seconds"
+        )
+        await asyncio.sleep(e.retry_after)
 
     return message_id
 
@@ -867,9 +870,10 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 
-# TODO: add Dockerfile for deployment
 # TODO: Update README
-# TODO: /api/get_gamestate 500 on map change?
+# TODO: test session expiration
+# TODO: test/finish map voting sections
+# TODO: break functions out into modules
 
 # Future
 # TODO: add score sections
