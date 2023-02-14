@@ -39,6 +39,8 @@ class Map(pydantic.BaseModel):
         if re.match(map_change_pattern, v):
             return constants.BETWEEN_MATCHES_MAP_NAME
 
+        # TODO: handle _RESTART suffix
+
         if v not in constants.ALL_MAPS:
             raise ValueError("Invalid Map Name")
 
