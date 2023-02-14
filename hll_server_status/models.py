@@ -2,9 +2,11 @@ import http.cookies
 import json
 import logging
 import re
+from itertools import zip_longest
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import NotRequired, TypedDict
+from pprint import pprint
 
 import pydantic
 import tomlkit
@@ -39,9 +41,14 @@ class Map(pydantic.BaseModel):
         if re.match(map_change_pattern, v):
             return constants.BETWEEN_MATCHES_MAP_NAME
 
-        # TODO: handle _RESTART suffix
+        restart_maps = [
+            map_name + suffix
+            for map_name, suffix in zip_longest(
+                constants.ALL_MAPS, [], fillvalue=constants.MAP_RESTART_SUFFIX
+            )
+        ]
 
-        if v not in constants.ALL_MAPS:
+        if v not in constants.ALL_MAPS and v not in restart_maps:
             raise ValueError("Invalid Map Name")
 
         return v
