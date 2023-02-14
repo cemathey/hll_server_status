@@ -343,6 +343,7 @@ async def update_hook_for_section(
     table_name: str,
     key: str,
     message_id: int | None,
+    refresh_delay: int,
     content_embed_creator_func: Callable,
 ) -> None:
     """Infinitely update/sleep between refreshes for a specific section"""
@@ -361,7 +362,6 @@ async def update_hook_for_section(
         end_time = time.perf_counter_ns()
         elapsed_time_ns = end_time - start_time
         factor = 1_000_000_000
-        refresh_delay: int = config.discord.time_between_refreshes
         refresh_delay_ns = refresh_delay * factor
         time_to_sleep = round((refresh_delay_ns - elapsed_time_ns) / factor, ndigits=0)
         app_store.logger.info(
