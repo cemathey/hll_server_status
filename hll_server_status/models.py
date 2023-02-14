@@ -106,6 +106,7 @@ def default_cookies() -> Cookies:
 class AppStore:
     server_identifier: str
     logger: logging.Logger
+    last_saved_message_ids: tomlkit.TOMLDocument | None
     logging_in: bool = field(default_factory=lambda: False)
     message_ids: tomlkit.TOMLDocument = field(default_factory=tomlkit.TOMLDocument)
     cookies: Cookies = field(default_factory=default_cookies)
