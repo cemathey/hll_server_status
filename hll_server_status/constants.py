@@ -48,6 +48,7 @@ COLOR_TO_CODE_BLOCK = {
 }
 
 BETWEEN_MATCHES_MAP_NAME = "Untitled"
+MAP_RESTART_SUFFIX = "_RESTART"
 
 ALL_MAPS = (
     "carentan_offensive_ger",
