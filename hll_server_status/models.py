@@ -2,11 +2,10 @@ import http.cookies
 import json
 import logging
 import re
-from itertools import zip_longest
 from dataclasses import dataclass, field
 from datetime import timedelta
+from itertools import zip_longest
 from typing import NotRequired, TypedDict
-from pprint import pprint
 
 import pydantic
 import tomlkit
