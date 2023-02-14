@@ -53,7 +53,9 @@ async def main():
         handler.setFormatter(formatter)
         logger.addHandler(handler)
         config = load_config(file_path)
-        app_store = AppStore(server_identifier=file_path.stem, logger=logger)
+        app_store = AppStore(
+            server_identifier=file_path.stem, logger=logger, last_saved_message_ids=None
+        )
         servers.append((app_store, config))
 
     if not servers:

@@ -358,7 +358,15 @@ async def update_hook_for_section(
                 app_store, table_name=table_name, key=key, message_id=message_id
             )
 
-        await save_message_ids_to_disk(app_store, config)
+        # Reduce disk usage by only persisting message IDs if they've changed or haven't been
+        # saved yet
+        if (
+            not app_store.last_saved_message_ids
+            or app_store.message_ids != app_store.last_saved_message_ids
+        ):
+            await save_message_ids_to_disk(app_store, config)
+            app_store.last_saved_message_ids = app_store.message_ids
+
         end_time = time.perf_counter_ns()
         elapsed_time_ns = end_time - start_time
         factor = 1_000_000_000
