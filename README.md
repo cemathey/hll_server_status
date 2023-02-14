@@ -119,3 +119,7 @@ If you _truly_ want to remove the container, but you probably just want to `dock
 docker rm hll_server_status
 docker run -d --init --name hll_server_status -v $(pwd)/logs:/code/logs -v $(pwd)/config:/code/config -v $(pwd)/messages:/code/messages --restart unless-stopped hll_server_status
 ```
+
+# Miscellaneous
+
+If you like what you do and would like me to continue volunteering my time, consider [tossing me a few dollars](https://www.buymeacoffee.com/emathey1)      
