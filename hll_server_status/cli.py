@@ -22,7 +22,7 @@ from hll_server_status.utils import (
 
 
 async def main():
-    """Load all the config files create asyncio tasks"""
+    """Load all the config files and create asyncio tasks"""
     formatter = logging.Formatter("%(asctime)s:%(levelname)s:%(message)s")
 
     root_logger = logging.getLogger(constants.ROOT_LOGGER_NAME)
@@ -58,7 +58,7 @@ async def main():
 
     if not servers:
         root_logger.error(
-            f"No config files found add one or more to {constants.LOG_DIR} "
+            f"No config files found, add one or more to {constants.LOG_DIR} "
         )
 
     async with aiohttp.ClientSession() as session:
@@ -76,9 +76,10 @@ async def main():
                     Config,
                     discord.Webhook,
                     aiohttp.ClientSession,
-                    str,
-                    str,
-                    int,
+                    str,  # TOML message IDs table_name
+                    str,  # TOML message ID key (i.e. gamestate)
+                    int,  # saved Discord message ID
+                    int,  # refresh delay (seconds)
                     Callable,
                 ]
             ] = []
@@ -96,8 +97,16 @@ async def main():
                 config.display.map_rotation.color.enabled,
                 config.display.map_rotation.embed.enabled,
             )
+            refresh_delays = (
+                config.display.header.time_between_refreshes,
+                config.display.gamestate.time_between_refreshes,
+                config.display.map_rotation.color.time_between_refreshes,
+                config.display.map_rotation.embed.time_between_refreshes,
+            )
 
-            for callable, key, enabled in zip(callables, keys, enableds):
+            for enabled, key, refresh_delay, callable in zip(
+                enableds, keys, refresh_delays, callables
+            ):
                 if enabled:
                     sections.append(
                         (
@@ -109,6 +118,7 @@ async def main():
                             key,
                             # pylance complains about this even though it's valid with tomlkit
                             message_ids[table_name][key],  # type: ignore
+                            refresh_delay,
                             callable,
                         )
                     )
@@ -126,6 +136,7 @@ async def main():
                         table_name,
                         key,
                         message_id,
+                        refresh_delay,
                         func,
                     ) = section
                     root_logger.info(
@@ -133,14 +144,15 @@ async def main():
                     )
                     tg.create_task(
                         update_hook_for_section(
-                            app_store,
-                            config,
-                            webhook,
-                            session,
-                            table_name,
-                            key,
-                            message_id,
-                            func,
+                            app_store=app_store,
+                            config=config,
+                            webhook=webhook,
+                            session=session,
+                            table_name=table_name,
+                            key=key,
+                            message_id=message_id,
+                            refresh_delay=refresh_delay,
+                            content_embed_creator_func=func,
                         )
                     )
 

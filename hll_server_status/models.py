@@ -39,6 +39,8 @@ class Map(pydantic.BaseModel):
         if re.match(map_change_pattern, v):
             return constants.BETWEEN_MATCHES_MAP_NAME
 
+        # TODO: handle _RESTART suffix
+
         if v not in constants.ALL_MAPS:
             raise ValueError("Invalid Map Name")
 
@@ -113,8 +115,6 @@ class OutputConfig(pydantic.BaseModel):
 
 class DiscordConfig(pydantic.BaseModel):
     webhook_url: pydantic.HttpUrl
-    # pylance complains about this even though it's valid with pydantic
-    time_between_refreshes: pydantic.conint(ge=1)  # type: ignore
 
 
 class APIConfig(pydantic.BaseModel):
@@ -152,6 +152,8 @@ class GamestateEmbedConfig(pydantic.BaseModel):
 
 class DisplayHeaderConfig(pydantic.BaseModel):
     enabled: bool
+    # pylance complains about this even though it's valid with pydantic
+    time_between_refreshes: pydantic.conint(ge=1)  # type: ignore
     server_name: str
     quick_connect_url: pydantic.AnyUrl | None
     battlemetrics_url: pydantic.HttpUrl | None
@@ -169,6 +171,8 @@ class DisplayHeaderConfig(pydantic.BaseModel):
 
 class DisplayGamestateConfig(pydantic.BaseModel):
     enabled: bool
+    # pylance complains about this even though it's valid with pydantic
+    time_between_refreshes: pydantic.conint(ge=1)  # type: ignore
     image: bool
     score_format: str
     score_format_ger_us: str | None
@@ -180,6 +184,8 @@ class DisplayGamestateConfig(pydantic.BaseModel):
 
 class DisplayMapRotationColorConfig(pydantic.BaseModel):
     enabled: bool
+    # pylance complains about this even though it's valid with pydantic
+    time_between_refreshes: pydantic.conint(ge=1)  # type: ignore
     display_title: bool
     title: str
     current_map_color: str
@@ -201,6 +207,8 @@ class DisplayMapRotationColorConfig(pydantic.BaseModel):
 
 class DisplayMapRotationEmbedConfig(pydantic.BaseModel):
     enabled: bool
+    # pylance complains about this even though it's valid with pydantic
+    time_between_refreshes: pydantic.conint(ge=1)  # type: ignore
     display_title: bool
     title: str
     current_map: str

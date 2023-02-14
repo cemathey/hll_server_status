@@ -2,16 +2,14 @@
 # Directory/filename to save existing Discord message IDs
 # You can delete these files (new messages will be created)
 # or hand edit them as needed to fix problems
-# If the file doesn't exist the tool will create new messages
+# If the file doesn't exist or it's an invalid message ID the tool will create new messages
 # Leave blank to use the defaults (recommended)
 message_id_directory = ""
 message_id_filename = ""
 
 [discord]
 webhook_url = ""
-# In seconds, there is a lower limit on how fast you can refresh
-# as determined by the delay time between calling your CRCON and then sending the message to Discord
-time_between_refreshes = 5
+
 
 [api]
 # The URL or IP address of your CRCON
@@ -25,6 +23,9 @@ password = ""
 # An embed to display some summary information about your server
 [display.header]
 enabled = true
+# In seconds, there is a lower limit on how fast you can refresh
+# as determined by the delay time between calling your CRCON and then sending the message to Discord
+time_between_refreshes = 60
 # Valid options are: "name" or "short_name", will display as it is set in your CRCON configuration
 server_name = "name"
 # Your steam quick connect URL, set to "" to disable
@@ -54,6 +55,9 @@ inline = true
 # An embed to show information about the current match
 [display.gamestate]
 enabled = true
+# In seconds, there is a lower limit on how fast you can refresh
+# as determined by the delay time between calling your CRCON and then sending the message to Discord
+time_between_refreshes = 5
 # Include the CRCON map picture or not
 image = true
 
@@ -115,12 +119,31 @@ inline = true
 name = "Next Map"
 value = "next_map"
 inline = true
-
+# Not currently working
+# [[display.gamestate.embeds]]
+# name = "\u200b"
+# value = "\u200b"
+# inline = false
+# [[display.gamestate.embeds]]
+# name = "Next Map"
+# value = ""
+# inline = true
+# [[display.gamestate.embeds]]
+# name = "Winning Votes"
+# value = ""
+# inline = true
+# [[display.gamestate.embeds]]
+# name = "Total Votes"
+# value = ""
+# inline = true
 
 # Display the map rotation as a list of triple backtick ` color coded code blocks
 # https://www.technipages.com/discord-code-blocks
 [display.map_rotation.color]
 enabled = false
+# In seconds, there is a lower limit on how fast you can refresh
+# as determined by the delay time between calling your CRCON and then sending the message to Discord
+time_between_refreshes = 60
 display_title = true
 title = "Map Rotation"
 # Valid options are: auto, cyan, green, orange, gray
@@ -144,6 +167,9 @@ Last refreshed <t:{0}:R>
 # Display the map rotation as Discord Embed of fields
 [display.map_rotation.embed]
 enabled = true
+# In seconds, there is a lower limit on how fast you can refresh
+# as determined by the delay time between calling your CRCON and then sending the message to Discord
+time_between_refreshes = 60
 display_title = true
 title = "Map Rotation"
 # Map name is {0} and index is {1}, you can use any Discord recognized mark down for bold/italic/etc.
