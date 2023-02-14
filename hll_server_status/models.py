@@ -47,7 +47,10 @@ class Map(pydantic.BaseModel):
             )
         ]
 
-        if v not in constants.ALL_MAPS and v not in restart_maps:
+        if v in restart_maps:
+            v = v.replace("_RESTART", "")
+
+        if v not in constants.ALL_MAPS:
             raise ValueError("Invalid Map Name")
 
         return v
