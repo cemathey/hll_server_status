@@ -2,6 +2,7 @@ import asyncio
 import http.cookies
 import time
 import tomllib
+from copy import copy
 from functools import partial, wraps
 from pathlib import Path
 from typing import Any, Callable
@@ -365,7 +366,7 @@ async def update_hook_for_section(
             or app_store.message_ids != app_store.last_saved_message_ids
         ):
             await save_message_ids_to_disk(app_store, config)
-            app_store.last_saved_message_ids = app_store.message_ids
+            app_store.last_saved_message_ids = copy(app_store.message_ids)
 
         end_time = time.perf_counter_ns()
         elapsed_time_ns = end_time - start_time
