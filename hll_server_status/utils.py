@@ -147,10 +147,14 @@ async def build_header(
             header_embed.title = server_name.short_name
 
     if url := config.display.header.quick_connect_url:
-        header_embed.add_field(name="Quick Connect", value=url, inline=False)
+        header_embed.add_field(
+            name=config.display.header.quick_connect_name, value=url, inline=False
+        )
 
     if url := config.display.header.battlemetrics_url:
-        header_embed.add_field(name="BattleMetrics Page", value=url, inline=False)
+        header_embed.add_field(
+            name=config.display.header.battlemetrics_name, value=url, inline=False
+        )
 
     for option in config.display.header.embeds:
         endpoint = OPTIONS_TO_ENDPOINTS[option.value]

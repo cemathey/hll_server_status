@@ -28,8 +28,10 @@ enabled = true
 time_between_refreshes = 60
 # Valid options are: "name" or "short_name", will display as it is set in your CRCON configuration
 server_name = "name"
+quick_connect_name = "Quick Connect"
 # Your steam quick connect URL, set to "" to disable
 quick_connect_url = ""
+battlemetrics_name = "BattleMetrics Page"
 # Your BattleMetrics server URL, set to "" to disable
 battlemetrics_url = ""
 
