@@ -165,7 +165,9 @@ class DisplayHeaderConfig(pydantic.BaseModel):
     # pylance complains about this even though it's valid with pydantic
     time_between_refreshes: pydantic.conint(ge=1)  # type: ignore
     server_name: str
+    quick_connect_name: str
     quick_connect_url: pydantic.AnyUrl | None
+    battlemetrics_name: str
     battlemetrics_url: pydantic.HttpUrl | None
     display_last_refreshed: bool
     last_refresh_text: str
@@ -177,6 +179,14 @@ class DisplayHeaderConfig(pydantic.BaseModel):
             raise ValueError(f"Invalid [[display.header]] name={v}")
 
         return v
+
+    @pydantic.validator("quick_connect_url", "battlemetrics_url", pre=True)
+    def allow_empty_urls(cls, v):
+        # Can't set None/null values in TOML but we want to support empty URL strings
+        if v == "":
+            return None
+        else:
+            return v
 
 
 class DisplayGamestateConfig(pydantic.BaseModel):
