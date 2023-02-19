@@ -171,7 +171,7 @@ class DisplayHeaderConfig(pydantic.BaseModel):
     battlemetrics_url: pydantic.HttpUrl | None
     display_last_refreshed: bool
     last_refresh_text: str
-    embeds: list[DisplayEmbedConfig]
+    embeds: list[DisplayEmbedConfig] | None
 
     @pydantic.validator("server_name")
     def must_be_valid_name(cls, v):

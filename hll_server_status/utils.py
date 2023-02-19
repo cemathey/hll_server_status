@@ -156,12 +156,13 @@ async def build_header(
             name=config.display.header.battlemetrics_name, value=url, inline=False
         )
 
-    for option in config.display.header.embeds:
-        endpoint = OPTIONS_TO_ENDPOINTS[option.value]
-        result = await get_api_result(app_store, config, session, endpoint=endpoint)
-        parser = ENDPOINTS_TO_PARSERS[endpoint]
-        value = parser(result)
-        header_embed.add_field(name=option.name, value=value, inline=option.inline)
+    if config.display.header.embeds:
+        for option in config.display.header.embeds:
+            endpoint = OPTIONS_TO_ENDPOINTS[option.value]
+            result = await get_api_result(app_store, config, session, endpoint=endpoint)
+            parser = ENDPOINTS_TO_PARSERS[endpoint]
+            value = parser(result)
+            header_embed.add_field(name=option.name, value=value, inline=option.inline)
 
     if config.display.header.display_last_refreshed:
         header_embed.set_footer(text=config.display.header.last_refresh_text)
