@@ -4,7 +4,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import aiohttp
 import discord
 
 from hll_server_status import constants
@@ -113,7 +112,7 @@ def get_map_picture_url(
 
 
 async def build_header(
-    app_store: AppStore, config: Config, session: aiohttp.ClientSession
+    app_store: AppStore, config: Config
 ) -> tuple[str | None, discord.Embed | None]:
     """Build up the Discord.Embed for the header message"""
     ENDPOINTS_TO_PARSERS = {
@@ -133,7 +132,8 @@ async def build_header(
 
     header_embed = discord.Embed()
 
-    result = await get_api_result(app_store, config, session, endpoint="get_status")
+    print(f"Waiting for API result: get_status")
+    result = await get_api_result(app_store, config, endpoint="get_status")
 
     if result is None:
         raise ValueError("")
@@ -159,7 +159,7 @@ async def build_header(
     if config.display.header.embeds:
         for option in config.display.header.embeds:
             endpoint = OPTIONS_TO_ENDPOINTS[option.value]
-            result = await get_api_result(app_store, config, session, endpoint=endpoint)
+            result = await get_api_result(app_store, config, endpoint=endpoint)
             parser = ENDPOINTS_TO_PARSERS[endpoint]
             value = parser(result)
             header_embed.add_field(name=option.name, value=value, inline=option.inline)
@@ -174,15 +174,12 @@ async def build_header(
 async def build_gamestate(
     app_store: AppStore,
     config: Config,
-    session: aiohttp.ClientSession,
     endpoint: str = "get_gamestate",
 ) -> tuple[str | None, discord.Embed | None]:
     """Build up the Discord.Embed for the gamestate message"""
     gamestate_embed = discord.Embed()
 
-    result: dict[str, Any] = await get_api_result(
-        app_store, config, session, endpoint=endpoint
-    )
+    result: dict[str, Any] = await get_api_result(app_store, config, endpoint=endpoint)
     gamestate = parse_gamestate(app_store, result)
 
     if config.display.gamestate.image:
@@ -193,9 +190,7 @@ async def build_gamestate(
 
     for option in config.display.gamestate.embeds:
         if option.value == "slots":
-            result = await get_api_result(
-                app_store, config, session, endpoint="get_slots"
-            )
+            result = await get_api_result(app_store, config, endpoint="get_slots")
             slots = parse_slots(result)
             value = f"{slots.player_count}/{slots.max_players}"
         elif option.value == constants.EMPTY_EMBED:
@@ -246,16 +241,13 @@ async def build_gamestate(
 async def build_map_rotation_color(
     app_store: AppStore,
     config: Config,
-    session: aiohttp.ClientSession,
     endpoint: str = "get_map_rotation",
 ) -> tuple[str | None, discord.Embed | None]:
     """Build up the content str for the map rotation color message"""
-    result = await get_api_result(app_store, config, session, endpoint=endpoint)
+    result = await get_api_result(app_store, config, endpoint=endpoint)
     map_rotation = parse_map_rotation(result)
 
-    gamestate_result = await get_api_result(
-        app_store, config, session, endpoint="get_gamestate"
-    )
+    gamestate_result = await get_api_result(app_store, config, endpoint="get_gamestate")
 
     gamestate = parse_gamestate(app_store, gamestate_result)
     current_map_positions = guess_current_map_rotation_positions(
@@ -318,16 +310,13 @@ async def build_map_rotation_color(
 async def build_map_rotation_embed(
     app_store: AppStore,
     config: Config,
-    session: aiohttp.ClientSession,
     endpoint: str = "get_map_rotation",
 ) -> tuple[str | None, discord.Embed | None]:
     """Build up the Discord.Embed for the map rotation embed message"""
-    result = await get_api_result(app_store, config, session, endpoint=endpoint)
+    result = await get_api_result(app_store, config, endpoint=endpoint)
     map_rotation = parse_map_rotation(result)
 
-    gamestate_result = await get_api_result(
-        app_store, config, session, endpoint="get_gamestate"
-    )
+    gamestate_result = await get_api_result(app_store, config, endpoint="get_gamestate")
     gamestate = parse_gamestate(app_store, gamestate_result)
 
     current_map_positions = guess_current_map_rotation_positions(

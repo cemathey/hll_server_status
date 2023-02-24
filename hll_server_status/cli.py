@@ -1,12 +1,12 @@
-import asyncio
 import logging
+import httpx
+import trio
 import os
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Callable
 
-import aiohttp
 import discord
 
 from hll_server_status import constants
@@ -63,104 +63,111 @@ async def main():
             f"No config files found, add one or more to {constants.LOG_DIR} "
         )
 
-    async with aiohttp.ClientSession() as session:
-        server_sections = []
-        for app_store, config in servers:
-            webhook = discord.Webhook.from_url(
-                config.discord.webhook_url, session=session
-            )
-            message_ids = await get_message_ids(app_store, config)
-            table_name = constants.MESSAGE_ID_FORMAT["table_name"]
+    server_sections = []
+    for app_store, config in servers:
+        webhook = discord.SyncWebhook.from_url(config.discord.webhook_url)
+        message_ids = await get_message_ids(app_store, config)
+        table_name = constants.MESSAGE_ID_FORMAT["table_name"]
 
-            sections: list[
-                tuple[
-                    AppStore,
-                    Config,
-                    discord.Webhook,
-                    aiohttp.ClientSession,
-                    str,  # TOML message IDs table_name
-                    str,  # TOML message ID key (i.e. gamestate)
-                    int,  # saved Discord message ID
-                    int,  # refresh delay (seconds)
-                    Callable,
-                ]
-            ] = []
+        sections: list[
+            tuple[
+                AppStore,
+                Config,
+                discord.Webhook,
+                str,  # TOML message IDs table_name
+                str,  # TOML message ID key (i.e. gamestate)
+                int,  # saved Discord message ID
+                int,  # refresh delay (seconds)
+                Callable,
+            ]
+        ] = []
 
-            callables = (
-                build_header,
-                build_gamestate,
-                build_map_rotation_color,
-                build_map_rotation_embed,
-            )
-            keys = ("header", "gamestate", "map_rotation_color", "map_rotation_embed")
-            enableds = (
-                config.display.header.enabled,
-                config.display.gamestate.enabled,
-                config.display.map_rotation.color.enabled,
-                config.display.map_rotation.embed.enabled,
-            )
-            refresh_delays = (
-                config.display.header.time_between_refreshes,
-                config.display.gamestate.time_between_refreshes,
-                config.display.map_rotation.color.time_between_refreshes,
-                config.display.map_rotation.embed.time_between_refreshes,
-            )
+        callables = (
+            build_header,
+            build_gamestate,
+            build_map_rotation_color,
+            build_map_rotation_embed,
+        )
+        keys = ("header", "gamestate", "map_rotation_color", "map_rotation_embed")
+        enableds = (
+            config.display.header.enabled,
+            config.display.gamestate.enabled,
+            config.display.map_rotation.color.enabled,
+            config.display.map_rotation.embed.enabled,
+        )
+        refresh_delays = (
+            config.display.header.time_between_refreshes,
+            config.display.gamestate.time_between_refreshes,
+            config.display.map_rotation.color.time_between_refreshes,
+            config.display.map_rotation.embed.time_between_refreshes,
+        )
 
-            for enabled, key, refresh_delay, callable in zip(
-                enableds, keys, refresh_delays, callables
-            ):
-                if enabled:
-                    sections.append(
-                        (
-                            app_store,
-                            config,
-                            webhook,
-                            session,
-                            table_name,
-                            key,
-                            # pylance complains about this even though it's valid with tomlkit
-                            message_ids[table_name][key],  # type: ignore
-                            refresh_delay,
-                            callable,
-                        )
-                    )
-
-            server_sections.append(sections)
-
-        async with asyncio.taskgroups.TaskGroup() as tg:
-            for server_section in server_sections:
-                for section in server_section:
+        for enabled, key, refresh_delay, callable in zip(
+            enableds, keys, refresh_delays, callables
+        ):
+            if enabled:
+                sections.append(
                     (
                         app_store,
                         config,
                         webhook,
-                        session,
                         table_name,
                         key,
-                        message_id,
+                        # pylance complains about this even though it's valid with tomlkit
+                        message_ids[table_name][key],  # type: ignore
                         refresh_delay,
-                        func,
-                    ) = section
-                    root_logger.info(
-                        f"Starting {app_store.server_identifier}:{key} check log files for further output"
+                        callable,
                     )
-                    tg.create_task(
-                        update_hook_for_section(
-                            app_store=app_store,
-                            config=config,
-                            webhook=webhook,
-                            session=session,
-                            table_name=table_name,
-                            key=key,
-                            message_id=message_id,
-                            refresh_delay=refresh_delay,
-                            content_embed_creator_func=func,
-                        )
-                    )
+                )
+
+        server_sections.append(sections)
+
+    async with trio.open_nursery() as nursery:
+        for server_section in server_sections:
+            for section in server_section:
+                (
+                    app_store,
+                    config,
+                    webhook,
+                    table_name,
+                    key,
+                    message_id,
+                    refresh_delay,
+                    func,
+                ) = section
+                root_logger.info(
+                    f"Starting {app_store.server_identifier}:{key} check log files for further output"
+                )
+
+                scope = await nursery.start(
+                    update_hook_for_section,
+                    app_store,
+                    config,
+                    webhook,
+                    table_name,
+                    key,
+                    message_id,
+                    refresh_delay,
+                    func,
+                    nursery,
+                )
+
+                # nursery.start_soon(
+                #     update_hook_for_section,
+                #     app_store,
+                #     config,
+                #     webhook,
+                #     table_name,
+                #     key,
+                #     message_id,
+                #     refresh_delay,
+                #     func,
+                #     nursery,
+                # )
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    trio.run(main)
 
 # TODO: Update README
 # TODO: test/finish map voting sections

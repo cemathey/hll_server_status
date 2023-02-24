@@ -1,4 +1,5 @@
 import http.cookies
+import httpx
 import json
 import logging
 import re
@@ -97,7 +98,7 @@ class LoginParameters(pydantic.BaseModel):
 
 
 class Cookies(TypedDict):
-    sessionid: NotRequired[http.cookies.Morsel[str]]
+    sessionid: NotRequired[httpx.Cookies]
 
 
 def default_cookies() -> Cookies:
@@ -111,7 +112,7 @@ class AppStore:
     last_saved_message_ids: tomlkit.TOMLDocument | None
     logging_in: bool = field(default_factory=lambda: False)
     message_ids: tomlkit.TOMLDocument = field(default_factory=tomlkit.TOMLDocument)
-    cookies: Cookies = field(default_factory=default_cookies)
+    cookies: dict[str, str] = field(default_factory=dict)
 
 
 class URL(pydantic.BaseModel):
