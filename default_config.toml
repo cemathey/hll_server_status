@@ -291,3 +291,6 @@ include_timestamp = true
 
 # Set to "" to disable
 last_refresh_text = "Last refreshed"
+
+bm_banner_enabled = false
+bm_banner_url= ""
