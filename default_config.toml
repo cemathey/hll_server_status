@@ -1,45 +1,86 @@
+################################
+#                              #
+# Config File Refresh Options  #
+#                              #
+################################
+[settings]
+# In seconds, how often to re-read this file for changes
+time_between_config_file_reads = 60
+# In seconds, how long to sleep a disabled section before re-checking
+# if it's been re-activated, this will only happen after a config file
+# refresh of course, so it will take at least `time_between_config_file_reads`
+# seconds to take effect
+disabled_section_sleep_timer = 60
+
+
+################################
+#                              #
+#       Message ID Files       #
+#                              #
+################################
 [output]
 # Directory/filename to save existing Discord message IDs
 # You can delete these files (new messages will be created)
 # or hand edit them as needed to fix problems
-# If the file doesn't exist or it's an invalid message ID the tool will create new messages
+# If the file doesn't exist or contains message IDs
+# of messages that don't exist in the webhook channel
+# the tool will create new messages
 # Leave blank to use the defaults (recommended)
 message_id_directory = ""
 message_id_filename = ""
 
+
+################################
+#                              #
+#       Discord Webhook        #
+#                              #
+################################
 [discord]
+# In the format https://discord.com/api/webhooks/.../...
 webhook_url = ""
 
 
+################################
+#                              #
+#      CRCON API Settings      #
+#                              #
+################################
 [api]
-# The URL or IP address of your CRCON
+# The URL or IP address of your CRCON, trailing / optional
+# for instance http://<ip>:<port>/ or https://yoururl.whatever/
 base_server_url = ""
 # Your CRCON username and password
 username = ""
 password = ""
 
+
 [display]
 
+################################
+#                              #
+#    Header Message Section    #
+#                              #
+################################
 # An embed to display some summary information about your server
 [display.header]
 enabled = true
+
 # In seconds, there is a lower limit on how fast you can refresh
 # as determined by the delay time between calling your CRCON and then sending the message to Discord
-time_between_refreshes = 60
+time_between_refreshes = 5
+
 # Valid options are: "name" or "short_name", will display as it is set in your CRCON configuration
 server_name = "name"
+
 quick_connect_name = "Quick Connect"
 # Your steam quick connect URL, set to "" to disable
 quick_connect_url = ""
+
 battlemetrics_name = "BattleMetrics Page"
 # Your BattleMetrics server URL, set to "" to disable
 battlemetrics_url = ""
 
-# Include the last refresh time in the footer of the message
-display_last_refreshed = true
-last_refresh_text = "Last refreshed"
-
-# A list of Discord Embeds
+# A list of optional Discord Embeds
 # name is the text you will see in Discord for the field title
 # value must be one of ["reserved_vip_slots", "current_vips"]
 # Discord does not allow sending an empty name or value
@@ -54,6 +95,32 @@ name = "Current VIPs"
 value = "current_vips"
 inline = true
 
+[display.header.footer]
+# Display order is {footer_text} {last_refresh_text} {timestamp}
+# spacing, newlines, etc. are up to you
+
+# Include the embed footer or not
+enabled = true
+
+# Text to include in the footer
+# useful if you're using the same webhook for multiple servers and 
+# need to differentiate the individual messages
+# You can include spaces, newlines \n etc. as desired to format this
+# set to "" to disable 
+footer_text = """
+"""
+# Include the last refresh time in the footer of the message
+include_timestamp = true
+
+# Set to "" to disable
+last_refresh_text = "Last refreshed"
+
+
+################################
+#                              #
+#  Game State Message Section  #
+#                              #
+################################
 # An embed to show information about the current match
 [display.gamestate]
 enabled = true
@@ -72,8 +139,25 @@ score_format = "Allied {0} : Axis {1}"
 score_format_ger_us = "<:icoT_US:1060219985215094804> {0} : <:icoT_GER:1060219972871278602> {1}"
 score_format_ger_rus = "<:icoT_RUS:1060217170455433286> {0} : <:icoT_GER:1060219972871278602> {1}"
 
+
+[display.gamestate.footer]
+# Display order is {footer_text} {last_refresh_text} {timestamp}
+# spacing, newlines, etc. are up to you
+
+# Include the embed footer or not
+enabled = true
+
+# Text to include in the footer
+# useful if you're using the same webhook for multiple servers and 
+# need to differentiate the individual messages
+# You can include spaces, newlines \n etc. as desired to format this
+# set to "" to disable 
+footer_text = """
+"""
 # Include the last refresh time in the footer of the message
-display_last_refreshed = true
+include_timestamp = true
+
+# Set to "" to disable
 last_refresh_text = "Last refreshed"
 
 # A list of Discord Embeds for values from the CRCON API get_gamestate call
@@ -121,31 +205,22 @@ inline = true
 name = "Next Map"
 value = "next_map"
 inline = true
-# Not currently working
-# [[display.gamestate.embeds]]
-# name = "\u200b"
-# value = "\u200b"
-# inline = false
-# [[display.gamestate.embeds]]
-# name = "Next Map"
-# value = ""
-# inline = true
-# [[display.gamestate.embeds]]
-# name = "Winning Votes"
-# value = ""
-# inline = true
-# [[display.gamestate.embeds]]
-# name = "Total Votes"
-# value = ""
-# inline = true
 
+
+####################################
+#                                  #
+#           Map Rotation           #
+#          (colored text)          #
+#         Message Section          #
+#                                  #
+####################################
 # Display the map rotation as a list of triple backtick ` color coded code blocks
 # https://www.technipages.com/discord-code-blocks
 [display.map_rotation.color]
 enabled = false
 # In seconds, there is a lower limit on how fast you can refresh
 # as determined by the delay time between calling your CRCON and then sending the message to Discord
-time_between_refreshes = 60
+time_between_refreshes = 5
 display_title = true
 title = "Map Rotation"
 # Valid options are: auto, cyan, green, orange, gray
@@ -166,12 +241,21 @@ last_refresh_text = """
 Last refreshed <t:{0}:R>
 """
 
+
+####################################
+#                                  #
+#           Map Rotation           #
+#             (embed)              #
+#         Message Section          #
+#                                  #
+####################################
+
 # Display the map rotation as Discord Embed of fields
 [display.map_rotation.embed]
 enabled = true
 # In seconds, there is a lower limit on how fast you can refresh
 # as determined by the delay time between calling your CRCON and then sending the message to Discord
-time_between_refreshes = 60
+time_between_refreshes = 5
 display_title = true
 title = "Map Rotation"
 # Map name is {0} and index is {1}, you can use any Discord recognized mark down for bold/italic/etc.
@@ -188,6 +272,22 @@ Legend
 ⬛ - Other Maps
 """
 
+[display.map_rotation.embed.footer]
+# Display order is {footer_text} {last_refresh_text} {timestamp}
+# spacing, newlines, etc. are up to you
+
+# Include the embed footer or not
+enabled = true
+
+# Text to include in the footer
+# useful if you're using the same webhook for multiple servers and 
+# need to differentiate the individual messages
+# You can include spaces, newlines \n etc. as desired to format this
+# set to "" to disable 
+footer_text = """
+"""
 # Include the last refresh time in the footer of the message
-display_last_refreshed = true
+include_timestamp = true
+
+# Set to "" to disable
 last_refresh_text = "Last refreshed"

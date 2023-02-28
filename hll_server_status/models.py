@@ -1,12 +1,12 @@
-import http.cookies
 import json
-import logging
 import re
 from dataclasses import dataclass, field
 from datetime import timedelta
 from itertools import zip_longest
 from typing import NotRequired, TypedDict
 
+import httpx
+import loguru
 import pydantic
 import tomlkit
 
@@ -97,7 +97,7 @@ class LoginParameters(pydantic.BaseModel):
 
 
 class Cookies(TypedDict):
-    sessionid: NotRequired[http.cookies.Morsel[str]]
+    sessionid: NotRequired[httpx.Cookies]
 
 
 def default_cookies() -> Cookies:
@@ -107,15 +107,21 @@ def default_cookies() -> Cookies:
 @dataclass
 class AppStore:
     server_identifier: str
-    logger: logging.Logger
+    logger: "loguru.Logger"
     last_saved_message_ids: tomlkit.TOMLDocument | None
     logging_in: bool = field(default_factory=lambda: False)
     message_ids: tomlkit.TOMLDocument = field(default_factory=tomlkit.TOMLDocument)
-    cookies: Cookies = field(default_factory=default_cookies)
+    cookies: dict[str, str] = field(default_factory=dict)
 
 
 class URL(pydantic.BaseModel):
     url: pydantic.HttpUrl
+
+
+class SettingsConfig(pydantic.BaseModel):
+    # pylance complains about this even though it's valid with pydantic
+    time_between_config_file_reads: pydantic.conint(ge=1)  # type: ignore
+    disabled_section_sleep_timer: pydantic.conint(ge=1)  # type: ignore
 
 
 class OutputConfig(pydantic.BaseModel):
@@ -131,6 +137,13 @@ class APIConfig(pydantic.BaseModel):
     base_server_url: str
     username: str
     password: str
+
+    @pydantic.validator("base_server_url")
+    def must_include_trailing_slash(cls, value: str):
+        if not value.endswith("/"):
+            return value + "/"
+
+        return value
 
 
 class DisplayEmbedConfig(pydantic.BaseModel):
@@ -154,10 +167,16 @@ class GamestateEmbedConfig(pydantic.BaseModel):
     @pydantic.validator("value")
     def must_be_valid_embed(cls, v):
         if v not in constants.GAMESTATE_EMBEDS:
-            print(f"{v=}")
             raise ValueError(f"Invalid [[display.gamestate]] embed {v}")
 
         return v
+
+
+class DisplayFooterConfig(pydantic.BaseModel):
+    enabled: bool
+    footer_text: str | None
+    include_timestamp: bool
+    last_refresh_text: str | None
 
 
 class DisplayHeaderConfig(pydantic.BaseModel):
@@ -169,9 +188,8 @@ class DisplayHeaderConfig(pydantic.BaseModel):
     quick_connect_url: pydantic.AnyUrl | None
     battlemetrics_name: str
     battlemetrics_url: pydantic.HttpUrl | None
-    display_last_refreshed: bool
-    last_refresh_text: str
     embeds: list[DisplayEmbedConfig] | None
+    footer: DisplayFooterConfig
 
     @pydantic.validator("server_name")
     def must_be_valid_name(cls, v):
@@ -197,8 +215,7 @@ class DisplayGamestateConfig(pydantic.BaseModel):
     score_format: str
     score_format_ger_us: str | None
     score_format_ger_rus: str | None
-    display_last_refreshed: bool
-    last_refresh_text: str
+    footer: DisplayFooterConfig
     embeds: list[GamestateEmbedConfig]
 
 
@@ -236,8 +253,7 @@ class DisplayMapRotationEmbedConfig(pydantic.BaseModel):
     other_map: str
     display_legend: bool
     legend: str
-    display_last_refreshed: bool
-    last_refresh_text: str
+    footer: DisplayFooterConfig
 
 
 class DisplayConfigMapRotation(pydantic.BaseModel):
@@ -252,6 +268,7 @@ class DisplayConfig(pydantic.BaseModel):
 
 
 class Config(pydantic.BaseModel):
+    settings: SettingsConfig
     output: OutputConfig
     discord: DiscordConfig
     api: APIConfig

@@ -1,170 +1,116 @@
-import asyncio
-import logging
-import os
-import sys
-from logging.handlers import RotatingFileHandler
+from copy import deepcopy
 from pathlib import Path
-from typing import Callable
 
-import aiohttp
-import discord
+import trio
+from loguru import logger
 
 from hll_server_status import constants
-from hll_server_status.io import get_message_ids, load_config, update_hook_for_section
-from hll_server_status.models import AppStore, Config
-from hll_server_status.utils import (
-    bootstrap,
-    build_gamestate,
-    build_header,
-    build_map_rotation_color,
-    build_map_rotation_embed,
+from hll_server_status.io import (
+    load_message_ids,
+    queue_webhook_update,
+    send_queued_webhook_update,
+    load_config,
 )
+from hll_server_status.models import AppStore
 
 
 async def main():
-    """Load all the config files and create asyncio tasks"""
-    formatter = logging.Formatter("%(asctime)s:%(levelname)s:%(message)s")
+    """Load all the config files and create async tasks for each section in each config file"""
 
-    root_logger = logging.getLogger(constants.ROOT_LOGGER_NAME)
-    root_logger.setLevel(os.getenv("LOGGING_LEVEL", logging.INFO))
-    file_handler = RotatingFileHandler(
-        filename=Path(
-            constants.LOG_DIR, constants.ROOT_LOGGER_NAME + constants.LOG_EXTENSION
-        ),
-        maxBytes=constants.LOG_SIZE_BYTES,
-        backupCount=constants.LOG_COUNT,
+    # Remove existing loguru sinks so it's copyable
+    # https://loguru.readthedocs.io/en/stable/resources/recipes.html#creating-independent-loggers-with-separate-set-of-handlers
+    logger.remove()
+    default_logger = deepcopy(logger)
+    default_logger.add(
+        f"{constants.LOG_DIR}/{'hll_server_status'}.{constants.LOG_EXTENSION}",
+        format=constants.LOG_FORMAT,
+        rotation=constants.LOG_SIZE,
     )
-    console_handler = logging.StreamHandler(stream=sys.stderr)
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
-    root_logger.addHandler(file_handler)
-    root_logger.addHandler(console_handler)
-    bootstrap(root_logger)
-    servers: list[tuple[AppStore, Config]] = []
-    for file_path in Path(constants.CONFIG_DIR).iterdir():
-        root_logger.info(f"Reading config file for {file_path}")
-        logger = logging.getLogger(file_path.stem)
-        logger.setLevel(os.getenv("LOGGING_LEVEL", logging.INFO))
-        handler = RotatingFileHandler(
-            filename=Path(constants.LOG_DIR, file_path.stem + constants.LOG_EXTENSION),
-            maxBytes=constants.LOG_SIZE_BYTES,
-            backupCount=constants.LOG_COUNT,
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        config = load_config(file_path)
-        app_store = AppStore(
-            server_identifier=file_path.stem, logger=logger, last_saved_message_ids=None
-        )
-        servers.append((app_store, config))
 
-    if not servers:
-        root_logger.error(
+    # TODO: Change this to shell script run by Docker
+    # bootstrap(root_logger)
+
+    config_files: list[tuple[AppStore, Path]] = []
+    for config_file_path in Path(constants.CONFIG_DIR).iterdir():
+
+        # Give each config file its own log file
+        _logger = deepcopy(logger)
+        _logger.add(
+            f"{constants.LOG_DIR}/{config_file_path.stem}.{constants.LOG_EXTENSION}",
+            format=constants.LOG_FORMAT,
+            rotation=constants.LOG_SIZE,
+        )
+        app_store = AppStore(
+            server_identifier=config_file_path.stem,
+            logger=_logger,
+            last_saved_message_ids=None,
+        )
+        await load_message_ids(app_store)
+        config_files.append((app_store, config_file_path))
+
+    if not config_files:
+        default_logger.error(
             f"No config files found, add one or more to {constants.LOG_DIR} "
         )
 
-    async with aiohttp.ClientSession() as session:
-        server_sections = []
-        for app_store, config in servers:
-            webhook = discord.Webhook.from_url(
-                config.discord.webhook_url, session=session
-            )
-            message_ids = await get_message_ids(app_store, config)
-            table_name = constants.MESSAGE_ID_FORMAT["table_name"]
+    toml_section_keys = (
+        "header",
+        "gamestate",
+        "map_rotation_color",
+        "map_rotation_embed",
+    )
+    table_name = constants.MESSAGE_ID_FORMAT["table_name"]
 
-            sections: list[
-                tuple[
-                    AppStore,
-                    Config,
-                    discord.Webhook,
-                    aiohttp.ClientSession,
-                    str,  # TOML message IDs table_name
-                    str,  # TOML message ID key (i.e. gamestate)
-                    int,  # saved Discord message ID
-                    int,  # refresh delay (seconds)
-                    Callable,
-                ]
-            ] = []
+    # Use a 0 size buffer so we never queue another attempt until the previous one has been
+    # received since these are all snap shots and producing faster than we can consume is
+    # negative value
+    send_channel, receive_channel = trio.open_memory_channel(0)
+    async with trio.open_nursery() as nursery:
+        async with send_channel, receive_channel:
+            for app_store, config_file_path in config_files:
+                default_logger.info(
+                    f"Starting {config_file_path} check log files for further output"
+                )
+                print(f"Starting {config_file_path} check log files for further output")
 
-            callables = (
-                build_header,
-                build_gamestate,
-                build_map_rotation_color,
-                build_map_rotation_embed,
-            )
-            keys = ("header", "gamestate", "map_rotation_color", "map_rotation_embed")
-            enableds = (
-                config.display.header.enabled,
-                config.display.gamestate.enabled,
-                config.display.map_rotation.color.enabled,
-                config.display.map_rotation.embed.enabled,
-            )
-            refresh_delays = (
-                config.display.header.time_between_refreshes,
-                config.display.gamestate.time_between_refreshes,
-                config.display.map_rotation.color.time_between_refreshes,
-                config.display.map_rotation.embed.time_between_refreshes,
-            )
-
-            for enabled, key, refresh_delay, callable in zip(
-                enableds, keys, refresh_delays, callables
-            ):
-                if enabled:
-                    sections.append(
-                        (
-                            app_store,
-                            config,
-                            webhook,
-                            session,
-                            table_name,
-                            key,
-                            # pylance complains about this even though it's valid with tomlkit
-                            message_ids[table_name][key],  # type: ignore
-                            refresh_delay,
-                            callable,
-                        )
+                app_store.logger.info(f"Reading config file for {config_file_path}")
+                try:
+                    config = load_config(config_file_path)
+                except (KeyError, ValueError) as e:
+                    app_store.logger.error(
+                        f"{e} while loading config from {config_file_path}"
                     )
+                    continue
 
-            server_sections.append(sections)
+                for section_key in toml_section_keys:
+                    job_key = f"{app_store.server_identifier}:{section_key}"
 
-        async with asyncio.taskgroups.TaskGroup() as tg:
-            for server_section in server_sections:
-                for section in server_section:
-                    (
-                        app_store,
+                    # Create a unique queue for each section in each config file so they can all update
+                    # independently of each other
+                    send_channel_clone = send_channel.clone()
+                    receive_channel_clone = receive_channel.clone()
+
+                    nursery.start_soon(
+                        queue_webhook_update,
+                        send_channel_clone,
+                        job_key,
                         config,
-                        webhook,
-                        session,
+                        config_file_path,
+                        app_store,
                         table_name,
-                        key,
-                        message_id,
-                        refresh_delay,
-                        func,
-                    ) = section
-                    root_logger.info(
-                        f"Starting {app_store.server_identifier}:{key} check log files for further output"
+                        section_key,
                     )
-                    tg.create_task(
-                        update_hook_for_section(
-                            app_store=app_store,
-                            config=config,
-                            webhook=webhook,
-                            session=session,
-                            table_name=table_name,
-                            key=key,
-                            message_id=message_id,
-                            refresh_delay=refresh_delay,
-                            content_embed_creator_func=func,
-                        )
+                    nursery.start_soon(
+                        send_queued_webhook_update, receive_channel_clone, job_key
                     )
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    trio.run(main)
 
 # TODO: Update README
 # TODO: test/finish map voting sections
-# TODO: break functions out into modules
 
 # Future
 # TODO: add score sections
+# TODO: add map vote info

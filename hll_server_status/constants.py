@@ -1,34 +1,37 @@
+from typing import Final
+
 from hll_server_status.models import MessageIDFormat
 
-EMPTY_EMBED = "\u200B"
-NONE_MESSAGE_ID = 0
+EMPTY_EMBED: Final = "\u200B"
+NONE_MESSAGE_ID: Final = 0
 
-SESSION_ID_COOKIE = "sessionid"
+SESSION_ID_COOKIE: Final = "sessionid"
 
 
 ROOT_LOGGER_NAME = "hll_server_status"
-CONFIG_DIR = "config/"
-MESSAGES_DIR = "messages/"
-LOG_DIR = "logs/"
+CONFIG_DIR: Final = "config/"
+MESSAGES_DIR: Final = "messages/"
+LOG_DIR: Final = "logs/"
 
-MANDATORY_DIRECTORIES = (CONFIG_DIR, MESSAGES_DIR, LOG_DIR)
+MANDATORY_DIRECTORIES: Final = (CONFIG_DIR, MESSAGES_DIR, LOG_DIR)
 
-LOG_EXTENSION = ".log"
-LOG_SIZE_BYTES = 5000000
-LOG_COUNT = 2
+LOG_EXTENSION: Final = "log"
+LOG_SIZE: Final = "5 MB"
+LOG_FORMAT: Final = "{time:YYYY-MM-DD at HH:mm:ss} {level} {message}"
 
+API_PREFIX: Final = "api/"
+MAP_PICTURES: Final = "maps/"
 
-API_PREFIX = "api/"
-MAP_PICTURES = "maps/"
+NS_TO_SECONDS_FACTOR: Final = 1_000_000_000
 
-MESSAGE_ID_FORMAT: MessageIDFormat = {
+MESSAGE_ID_FORMAT: Final[MessageIDFormat] = {
     "table_name": "message_ids",
     "fields": ["header", "gamestate", "map_rotation_color", "map_rotation_embed"],
 }
 
-DISPLAY_NAMES = ("name", "short_name")
-DISPLAY_EMBEDS = ("reserved_vip_slots", "current_vips")
-GAMESTATE_EMBEDS = (
+DISPLAY_NAMES: Final = ("name", "short_name")
+DISPLAY_EMBEDS: Final = ("reserved_vip_slots", "current_vips")
+GAMESTATE_EMBEDS: Final = (
     "num_allied_players",
     "num_axis_players",
     "slots",
@@ -39,7 +42,7 @@ GAMESTATE_EMBEDS = (
     EMPTY_EMBED,
 )
 
-COLOR_TO_CODE_BLOCK = {
+COLOR_TO_CODE_BLOCK: Final = {
     "auto": "",
     "cyan": "yaml",  # dsconfig
     "green": "less",  # less
@@ -47,10 +50,10 @@ COLOR_TO_CODE_BLOCK = {
     "gray": "bf",  # flix
 }
 
-BETWEEN_MATCHES_MAP_NAME = "Untitled"
-MAP_RESTART_SUFFIX = "_RESTART"
+BETWEEN_MATCHES_MAP_NAME: Final = "Untitled"
+MAP_RESTART_SUFFIX: Final = "_RESTART"
 
-ALL_MAPS = (
+ALL_MAPS: Final = (
     "carentan_offensive_ger",
     "carentan_offensive_us",
     "carentan_warfare",
@@ -97,7 +100,7 @@ ALL_MAPS = (
     "utahbeach_warfare",
 )
 
-LONG_HUMAN_MAP_NAMES = {
+LONG_HUMAN_MAP_NAMES: Final = {
     "Untitled": "End of Match",
     "carentan_offensive_ger": "Carentan Offensive GER",
     "carentan_offensive_us": "Carentan Offensive US",
@@ -145,7 +148,7 @@ LONG_HUMAN_MAP_NAMES = {
     "utahbeach_warfare": "Utah Beach",
 }
 
-MAP_TO_PICTURE = {
+MAP_TO_PICTURE: Final = {
     "carentan": "carentan.webp",
     "foy": "foy.webp",
     "hill400": "hill400.webp",
@@ -161,7 +164,7 @@ MAP_TO_PICTURE = {
     "utahbeach": "utah.webp",
 }
 
-RUSSIAN_MAPS = (
+RUSSIAN_MAPS: Final = (
     "kharkov_offensive_ger",
     "kharkov_offensive_rus",
     "kharkov_warfare",
@@ -176,7 +179,7 @@ RUSSIAN_MAPS = (
 
 # Could just do set intersections to get russian vs. us but making it explicit
 # especially for when more factions come along
-US_MAPS = (
+US_MAPS: Final = (
     "carentan_offensive_ger",
     "carentan_offensive_us",
     "carentan_warfare",
@@ -215,7 +218,7 @@ US_MAPS = (
 
 # TODO: Update with British maps on U14 release
 
-SCORE_EMBEDS = (
+SCORE_EMBEDS: Final = (
     "TOP_KILLERS",
     "TOP_RATIO",
     "TOP_PERFORMANCE",
