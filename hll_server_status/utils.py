@@ -2,12 +2,11 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import discord
 
 from hll_server_status import constants
-from hll_server_status.io import get_api_result
 from hll_server_status.models import URL, AppStore, Config, Map
 from hll_server_status.parsers import (
     parse_gamestate,
@@ -112,7 +111,9 @@ def get_map_picture_url(
 
 
 async def build_header(
-    app_store: AppStore, config: Config
+    app_store: AppStore,
+    config: Config,
+    get_api_result: Callable,
 ) -> tuple[str | None, discord.Embed | None]:
     """Build up the Discord.Embed for the header message"""
     ENDPOINTS_TO_PARSERS = {
@@ -132,9 +133,10 @@ async def build_header(
 
     header_embed = discord.Embed()
 
-    print(f"Waiting for API result: get_status")
+    # print(f"Waiting for API result: get_status")
     result = await get_api_result(app_store, config, endpoint="get_status")
 
+    # print(f"Received {result=} from: get_status")
     if result is None:
         raise ValueError("")
 
@@ -164,8 +166,13 @@ async def build_header(
             value = parser(result)
             header_embed.add_field(name=option.name, value=value, inline=option.inline)
 
-    if config.display.header.display_last_refreshed:
-        header_embed.set_footer(text=config.display.header.last_refresh_text)
+    footer_text = ""
+    if config.display.header.footer.enabled:
+        footer_text = f"{config.display.header.footer.footer_text}{config.display.header.footer.last_refresh_text}"
+
+    if config.display.header.footer.include_timestamp:
+        if footer_text:
+            header_embed.set_footer(text=footer_text)
         header_embed.timestamp = datetime.now()
 
     return None, header_embed
@@ -174,6 +181,7 @@ async def build_header(
 async def build_gamestate(
     app_store: AppStore,
     config: Config,
+    get_api_result: Callable,
     endpoint: str = "get_gamestate",
 ) -> tuple[str | None, discord.Embed | None]:
     """Build up the Discord.Embed for the gamestate message"""
@@ -231,9 +239,13 @@ async def build_gamestate(
 
         gamestate_embed.add_field(name=option.name, value=value, inline=option.inline)
 
-    if config.display.gamestate.display_last_refreshed:
-        gamestate_embed.set_footer(text=config.display.gamestate.last_refresh_text)
-        gamestate_embed.timestamp = datetime.now()
+    if config.display.gamestate.footer.enabled:
+        footer_text = f"{config.display.gamestate.footer.footer_text}{config.display.gamestate.footer.last_refresh_text}"
+
+        if config.display.gamestate.footer.include_timestamp:
+            if footer_text:
+                gamestate_embed.set_footer(text=footer_text)
+            gamestate_embed.timestamp = datetime.now()
 
     return None, gamestate_embed
 
@@ -241,9 +253,14 @@ async def build_gamestate(
 async def build_map_rotation_color(
     app_store: AppStore,
     config: Config,
+    get_api_result: Callable,
     endpoint: str = "get_map_rotation",
 ) -> tuple[str | None, discord.Embed | None]:
     """Build up the content str for the map rotation color message"""
+    app_store.logger.error(app_store)
+    app_store.logger.error(config)
+    app_store.logger.exception("Should not be here")
+    raise Exception
     result = await get_api_result(app_store, config, endpoint=endpoint)
     map_rotation = parse_map_rotation(result)
 
@@ -310,6 +327,7 @@ async def build_map_rotation_color(
 async def build_map_rotation_embed(
     app_store: AppStore,
     config: Config,
+    get_api_result: Callable,
     endpoint: str = "get_map_rotation",
 ) -> tuple[str | None, discord.Embed | None]:
     """Build up the Discord.Embed for the map rotation embed message"""
@@ -354,10 +372,13 @@ async def build_map_rotation_embed(
         name=config.display.map_rotation.embed.title, value="\n".join(description)
     )
 
-    if config.display.map_rotation.embed.display_last_refreshed:
-        map_rotation_embed.set_footer(
-            text=config.display.map_rotation.embed.last_refresh_text
-        )
-        map_rotation_embed.timestamp = datetime.now()
+    footer_text = ""
+    if config.display.map_rotation.embed.footer.enabled:
+        footer_text = f"{config.display.map_rotation.embed.footer.footer_text}{config.display.map_rotation.embed.footer.last_refresh_text}"
+
+        if config.display.map_rotation.embed.footer.include_timestamp:
+            if footer_text:
+                map_rotation_embed.set_footer(text=footer_text)
+            map_rotation_embed.timestamp = datetime.now()
 
     return None, map_rotation_embed
