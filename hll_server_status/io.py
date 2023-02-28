@@ -4,7 +4,6 @@ from copy import copy
 from functools import partial, wraps
 from itertools import cycle
 from pathlib import Path
-from pprint import pprint
 from typing import Any, Callable
 
 import discord
@@ -80,6 +79,7 @@ def get_producer_config_values(config: Config, key: str) -> tuple[bool, int, Cal
 async def queue_webhook_update(
     send_channel,
     job_key: str,
+    config: Config,
     config_file_path: Path,
     app_store: AppStore,
     table_name: str,
@@ -93,9 +93,6 @@ async def queue_webhook_update(
 
     # enabled = True
     config_update_timestamp_ns = 0
-
-    app_store.logger.info(f"Reading config file for {config_file_path}")
-    config = load_config(config_file_path)
 
     # Not using an async webhook since trio and aiohttp are incompatible
     # not a big deal since we're only blocking within each individual
@@ -135,7 +132,14 @@ async def queue_webhook_update(
                     app_store.logger.debug(
                         f"{enabled=} key={toml_section_key} {job_key=} {content_embed_creator_func=}"
                     )
-                    config = load_config(config_file_path)
+                    try:
+                        config = load_config(config_file_path)
+                    except (KeyError, ValueError) as e:
+                        app_store.logger.error(
+                            f"{e} while loading config from {config_file_path}"
+                        )
+                        break
+
                     webhook = discord.SyncWebhook.from_url(config.discord.webhook_url)
                     # pylance complains about this even though it's valid with tomlkit
                     message_id = app_store.message_ids[table_name][toml_section_key]  # type: ignore
@@ -201,7 +205,7 @@ async def queue_webhook_update(
                 ) as e:
                     # TODO: better backoff system
                     backoff = next(back_offs)
-                    print(f"Error {e} in {job_key} sleeping for {backoff} seconds")
+                    logger.error(f"{e} in {job_key} sleeping for {backoff} seconds")
                     await trio.sleep(backoff)
 
 
@@ -339,7 +343,7 @@ async def load_message_ids(app_store: AppStore) -> None:
             message_ids = await load_message_ids_from_disk(app_store)
         except FileNotFoundError:
             app_store.logger.warning(
-                f"{app_store.server_identifier}.toml config file not found."
+                f"{app_store.server_identifier}.toml message ID file not found."
             )
 
         message_ids = validate_message_ids_format(app_store, message_ids)

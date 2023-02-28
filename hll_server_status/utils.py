@@ -133,10 +133,8 @@ async def build_header(
 
     header_embed = discord.Embed()
 
-    # print(f"Waiting for API result: get_status")
     result = await get_api_result(app_store, config, endpoint="get_status")
 
-    # print(f"Received {result=} from: get_status")
     if result is None:
         raise ValueError("")
 
