@@ -5,7 +5,7 @@
 ################################
 [settings]
 # In seconds, how often to re-read this file for changes
-time_between_config_file_reads = 60
+time_between_config_file_reads = 300
 # In seconds, how long to sleep a disabled section before re-checking
 # if it's been re-activated, this will only happen after a config file
 # refresh of course, so it will take at least `time_between_config_file_reads`
@@ -67,7 +67,7 @@ enabled = true
 
 # In seconds, there is a lower limit on how fast you can refresh
 # as determined by the delay time between calling your CRCON and then sending the message to Discord
-time_between_refreshes = 5
+time_between_refreshes = 60
 
 # Valid options are: "name" or "short_name", will display as it is set in your CRCON configuration
 server_name = "name"
@@ -220,7 +220,7 @@ inline = true
 enabled = false
 # In seconds, there is a lower limit on how fast you can refresh
 # as determined by the delay time between calling your CRCON and then sending the message to Discord
-time_between_refreshes = 5
+time_between_refreshes = 60
 display_title = true
 title = "Map Rotation"
 # Valid options are: auto, cyan, green, orange, gray
@@ -255,7 +255,7 @@ Last refreshed <t:{0}:R>
 enabled = true
 # In seconds, there is a lower limit on how fast you can refresh
 # as determined by the delay time between calling your CRCON and then sending the message to Discord
-time_between_refreshes = 5
+time_between_refreshes = 60
 display_title = true
 title = "Map Rotation"
 # Map name is {0} and index is {1}, you can use any Discord recognized mark down for bold/italic/etc.
