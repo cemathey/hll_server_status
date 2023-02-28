@@ -86,7 +86,7 @@ async def queue_webhook_update(
     toml_section_key: str,
 ) -> None:
     """Queue an update for this sections webhook and then sleep until next update time"""
-    refresh_config = True
+    refresh_config = False
     kill_task = False
 
     back_offs = cycle([1, 2, 3, 4, 5])
@@ -126,6 +126,7 @@ async def queue_webhook_update(
             # the entire service
             # TODO: watch the file for changes rather than polling?
             if refresh_config:
+                refresh_config = False
                 try:
                     config_update_timestamp_ns = time.perf_counter_ns()
                     app_store.logger.info(f"Reading config file for {config_file_path}")
@@ -194,7 +195,7 @@ async def queue_webhook_update(
                     time_to_sleep = calculate_sleep_time(
                         start_time_ns, end_time, refresh_delay
                     )
-                    app_store.logger.info(
+                    app_store.logger.debug(
                         f"Sleeping {job_key} for {time_to_sleep} seconds"
                     )
                     await trio.sleep(time_to_sleep)
@@ -236,10 +237,11 @@ async def send_queued_webhook_update(receive_channel, job_key: str):
             ):
                 await save_message_ids_to_disk(app_store, config)
                 app_store.last_saved_message_ids = copy(app_store.message_ids)
-        finally:
+        except Exception as e:
             # try to save the current message IDs if there's an exception to avoid orphaned
             # messages
             await save_message_ids_to_disk(app_store, config)
+            raise e
 
 
 def load_config(file_path: Path) -> Config:
@@ -369,7 +371,7 @@ async def load_message_ids_from_disk(
         contents: str = await fp.read()  # type: ignore
 
     message_ids = tomlkit.loads(contents)
-    app_store.logger.info(f"Loaded Discord message IDs={message_ids}")
+    app_store.logger.debug(f"Loaded Discord message IDs={message_ids}")
     return message_ids
 
 
@@ -393,7 +395,7 @@ def with_login(func: Callable):
         if not app_store.cookies.get("sessionid", None) and not app_store.logging_in:
             app_store.logging_in = True
             app_store.cookies["sessionid"] = login(config, username, password)
-            app_store.logger.info(
+            app_store.logger.debug(
                 f"Logged in with session ID: {app_store.cookies['sessionid']}"
             )
 
@@ -530,7 +532,7 @@ async def send_for_webhook(
             webhook.edit_message, message_id=message_id, content=content, embed=embed
         )
     else:
-        log_message = f"Creating new {key} webhook message"
+        log_message = f"Creating new {key} Discord message"
         if embed:
             func = partial(webhook.send, content=content, embed=embed, wait=True)
         else:

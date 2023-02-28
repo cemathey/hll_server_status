@@ -167,7 +167,6 @@ class GamestateEmbedConfig(pydantic.BaseModel):
     @pydantic.validator("value")
     def must_be_valid_embed(cls, v):
         if v not in constants.GAMESTATE_EMBEDS:
-            print(f"{v=}")
             raise ValueError(f"Invalid [[display.gamestate]] embed {v}")
 
         return v
