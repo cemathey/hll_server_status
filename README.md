@@ -2,12 +2,13 @@
 
 A stand alone Hell Let Loose server status tool for servers running [Community RCON](https://github.com/MarechJ/hll_rcon_tool) with some excellent features!
 
-- It's fast! uses `asyncio` and `aiohttp` so that it can update a bunch of different webhooks at the same time
+- It's fast! runs asynchronously (with `trio`) so that it can update a bunch of different webhooks at the same time
 - Respects `Discord` rate limiting and if it is being rate limited will sleep the amount of time `Discord` asks.
 - Separate and independent sections (server info header, game state [time remaining, etc.] and map rotations)
 - User configurable refresh rates per section
 - User configurable text for most portions so you can tweak, translate or otherwise localize it for your users.
 - Host as many servers as you want and/or have one server update multiple web hooks
+- Now with more fault tolerance! It won't kill the entire process if an individual config file has issues
 
 ![Server Header](docs/images/example_header.png)
 ![Game State](docs/images/example_gamestate.png)
@@ -40,10 +41,10 @@ cd hll_server_status
 docker build --tag hll_server_status:latest .
 ```
 
-2. Create the `Docker` container (can only be done once, and only needs to be done once unless you `docker rm` remove the container):
+2. Create the `Docker` container (can only be done once, and only needs to be done once unless you `docker rm` remove the container) or you want to change the logging level or something:
 
 ```sh
-docker run -d --init --name hll_server_status -v $(pwd)/logs:/code/logs -v $(pwd)/config:/code/config -v $(pwd)/messages:/code/messages --restart unless-stopped hll_server_status
+docker run -d --env LOGURU_LEVEL=INFO --init --name hll_server_status -v $(pwd)/logs:/code/logs -v $(pwd)/config:/code/config -v $(pwd)/messages:/code/messages --restart unless-stopped hll_server_status
 ```
 
 3. After building the image and creating the volume you can simply `docker start`, `docker stop`, or `docker restart` the container as necessary without the `docker run ...` command
@@ -60,7 +61,7 @@ docker run -d --init --name hll_server_status -v $(pwd)/logs:/code/logs -v $(pwd
 
 - You can host as many different servers, or the same server updating different webhooks in the same tool as you want, simply copy the default config (do not delete or otherwise edit the default) use your editor of choice to fill it in. It is a [TOML](https://toml.io/en/) file and most values are set to usable defaults.
 
-- There should be no real practical limit to the number of webhooks you can update with this, but who knows you might run into some weird `Discord` rate limiting on their end at some point.
+- There should be no real practical limit to the number of webhooks you can update with this, but who knows you might run into some weird `Discord` rate limiting on their end at some point and even though it uses `async` it's still subject to the [Python Global Interpreter Lock](https://realpython.com/python-gil/) and is only running on one thread on one core.
 
 ```sh
 cp default_config.toml config/desired_name.toml
@@ -69,12 +70,24 @@ cp default_config.toml config/desired_name.toml
 ## Mandatory Configuration
 
 ```toml
+################################
+#                              #
+#       Discord Webhook        #
+#                              #
+################################
 [discord]
+# In the format https://discord.com/api/webhooks/.../...
 webhook_url = ""
 
+
+################################
+#                              #
+#      CRCON API Settings      #
+#                              #
+################################
 [api]
-# The URL or IP address of your CRCON (ex: http://127.0.0.1:8010/)
-# you must include the trailing /
+# The URL or IP address of your CRCON, trailing / optional
+# for instance http://<ip>:<port>/ or https://yoururl.whatever/
 base_server_url = ""
 # Your CRCON username and password
 username = ""
@@ -83,13 +96,14 @@ password = ""
 
 # Updating
 
-1. Refresh the git repository **or** download a new release, but see the release notes for any `default_config.toml` changes.
+1. Refresh the `git` repository **or** download a new release, but see the release notes for any `default_config.toml` changes.
 
 ```sh
 git pull
 docker build --tag hll_server_status:latest .
+docker stop hll_server_status
 docker rm hll_server_status
-docker run -d --init --name hll_server_status -v $(pwd)/logs:/code/logs -v $(pwd)/config:/code/config -v $(pwd)/messages:/code/messages --restart unless-stopped hll_server_status
+docker run -d --env LOGURU_LEVEL=INFO --init --name hll_server_status -v $(pwd)/logs:/code/logs -v $(pwd)/config:/code/config -v $(pwd)/messages:/code/messages --restart unless-stopped hll_server_status
 ```
 
 # FAQ
@@ -106,19 +120,32 @@ docker run -d --init --name hll_server_status -v $(pwd)/logs:/code/logs -v $(pwd
 
    No, Scorebot which is built into Community RCON already includes this.
 
-4. I can't get this working, will you help me?
+4. Any plans to include vote map info?
+   Maybe at some point.
 
-   Not beyond this README, it's open source and if you can't figure out how to get it running contact me and I will host it for you for a nominal fee.
+5. I can't get this working, will you help me?
 
-5. Any plans to host pre-built Docker images like Community RCON or other projects do?
+   Not beyond this README, it's open source and if you can't figure out how to get it running contact me and I will [host it for you](https://crcon.cc/) for a nominal fee.
+
+6. Any plans to host pre-built Docker images like Community RCON or other projects do?
 
    No.
 
-6. I don't know how to use Docker, help!
+7. I don't know how to use Docker, help!
 
    Start Googling.
 
 # Troubleshooting
+
+- How do I change the logging level?
+
+  Stop and remove the container, and re-run it with a different log level (`DEUBG`, `INFO`, `ERROR`, etc).
+
+```shell
+docker stop hll_server_status
+docker rm hll_server_status
+docker run -d --env LOGURU_LEVEL=INFO --init --name hll_server_status -v $(pwd)/logs:/code/logs -v $(pwd)/config:/code/config -v $(pwd)/messages:/code/messages --restart unless-stopped hll_server_status
+```
 
 - My different sections appear in a different order than I want them to
 
@@ -134,7 +161,7 @@ If you _truly_ want to remove the container, but you probably just want to `dock
 
 ```sh
 docker rm hll_server_status
-docker run -d --init --name hll_server_status -v $(pwd)/logs:/code/logs -v $(pwd)/config:/code/config -v $(pwd)/messages:/code/messages --restart unless-stopped hll_server_status
+docker run -d --env LOGURU_LEVEL=INFO --init --name hll_server_status -v $(pwd)/logs:/code/logs -v $(pwd)/config:/code/config -v $(pwd)/messages:/code/messages --restart unless-stopped hll_server_status
 ```
 
 # Miscellaneous
@@ -149,6 +176,4 @@ Pull requests are welcome, please format your code with `black` and `isort` and 
 
 I may get to these at some point, if you **really** want something done you can either fork this or open a pull request, or you can commision me to make changes.
 
-- Better error messages
-- Better error handling, right now the entire tool will die if one config file has errors
 - Vote map information
