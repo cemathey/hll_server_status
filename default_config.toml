@@ -271,6 +271,8 @@ Legend
 🟨 - Next Map
 ⬛ - Other Maps
 """
+bm_banner_enabled = false
+bm_banner_url= ""
 
 [display.map_rotation.embed.footer]
 # Display order is {footer_text} {last_refresh_text} {timestamp}
