@@ -245,6 +245,9 @@ async def send_queued_webhook_update(receive_channel, job_key: str):
         except Exception as e:
             # try to save the current message IDs if there's an exception to avoid orphaned
             # messages
+            await save_message_id(
+                app_store, table_name=table_name, key=key, message_id=message_id
+            )
             await save_message_ids_to_disk(app_store, config)
             raise e
 
@@ -274,6 +277,7 @@ async def save_message_id(
     if message_id is None:
         message_id = constants.NONE_MESSAGE_ID
 
+    app_store.logger.debug(f"save_message_id({table_name=} {key=} {message_id=})")
     # pylance complains about this even though it's valid with tomlkit
     app_store.message_ids[table_name][key] = message_id  # type: ignore
 
@@ -300,6 +304,8 @@ async def save_message_ids_to_disk(
     file = Path(path, filename)
 
     app_store.logger.info(f"Saving message IDs to {file}")
+    app_store.logger.debug(f"{app_store.message_ids=}")
+    app_store.logger.debug(f"tomlkit.dumps={tomlkit.dumps(app_store.message_ids)}")
     async with await trio.open_file(file, mode="w") as fp:
         toml_string = tomlkit.dumps(app_store.message_ids)
         await fp.write(toml_string)
