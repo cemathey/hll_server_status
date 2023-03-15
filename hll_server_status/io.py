@@ -169,7 +169,6 @@ async def queue_webhook_update(
                 )
                 await trio.sleep(time_to_sleep)
             else:
-
                 try:
                     # pylance complains about this even though it's valid with tomlkit
                     message_id = app_store.message_ids[table_name][toml_section_key]  # type: ignore
@@ -224,7 +223,13 @@ async def send_queued_webhook_update(receive_channel, job_key: str):
     async for app_store, config, webhook, table_name, key, message_id, content, embed in receive_channel:
         try:
             message_id = await send_for_webhook(
-                app_store, key, webhook, message_id, content=content, embed=embed
+                app_store,
+                config,
+                key,
+                webhook,
+                message_id,
+                content=content,
+                embed=embed,
             )
             await save_message_id(
                 app_store, table_name=table_name, key=key, message_id=message_id
@@ -516,6 +521,7 @@ async def get_api_result(
 
 async def send_for_webhook(
     app_store: AppStore,
+    config: Config,
     key: str,
     webhook: discord.SyncWebhook,
     message_id: int | None = None,
@@ -551,5 +557,8 @@ async def send_for_webhook(
             f"This message was rate limited by Discord retrying after {e.retry_after:.2f} seconds"
         )
         await trio.sleep(e.retry_after)
+    except requests.exceptions.ConnectionError as e:
+        app_store.logger.error(f"Connection error with url={webhook.url}")
+        await trio.sleep(config.settings.disabled_section_sleep_timer)
 
     return message_id
