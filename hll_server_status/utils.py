@@ -51,7 +51,6 @@ def guess_current_map_rotation_positions(
     # if the next map is in only once then we know exactly where we are
     current_map_idxs = []
     for idx in [idx for idx, name in enumerate(raw_names) if name == next_map.raw_name]:
-
         # if raw_names.count(next_map.raw_name) == 1:
         # next_map_idx = raw_names.index(next_map.raw_name)
         # current_map_idx = None
@@ -99,12 +98,19 @@ def get_map_picture_url(
     if map.raw_name == constants.BETWEEN_MATCHES_MAP_NAME:
         return None
 
-    base_map_name, _ = map.raw_name.split("_", maxsplit=1)
-    url = (
-        config.api.base_server_url
-        + map_prefix
-        + constants.MAP_TO_PICTURE[base_map_name]
-    )
+    try:
+        base_map_name, _ = map.raw_name.split("_", maxsplit=1)
+    except ValueError:
+        # Most likely an update has dropped and a new map exists
+        base_map_name = map.raw_name
+
+    try:
+        map_to_picture = constants.MAP_TO_PICTURE[base_map_name]
+    except KeyError:
+        # Most likely an update has dropped and a new map exists
+        map_to_picture = base_map_name + ".webp"
+
+    url = config.api.base_server_url + map_prefix + map_to_picture
 
     # This is valid even though pylance complains about it
     return URL(url=url)  # type: ignore
