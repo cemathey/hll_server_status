@@ -51,13 +51,22 @@ class Map(pydantic.BaseModel):
             v = v.replace("_RESTART", "")
 
         if v not in constants.ALL_MAPS:
-            raise ValueError(f"Invalid Map Name map_name={v}")
+            # Most likely an update has dropped and a new map exists
+            v = v.split("_", 1)[0]
+            if v == "":
+                v = "Unknown Map"
 
         return v
 
     @property
     def name(self):
-        return constants.LONG_HUMAN_MAP_NAMES[self.raw_name]
+        try:
+            _name = constants.LONG_HUMAN_MAP_NAMES[self.raw_name]
+        except KeyError:
+            # Most likely an update has dropped and a new map exists
+            _name = self.raw_name
+
+        return _name
 
     def __repr__(self) -> str:
         return f"{self.__class__}({self.name=} {self.raw_name=})"
