@@ -138,7 +138,7 @@ image = true
 score_format = "Allied {0} : Axis {1}"
 score_format_ger_us = "<:icoT_US:1060219985215094804> {0} : <:icoT_GER:1060219972871278602> {1}"
 score_format_ger_rus = "<:icoT_RUS:1060217170455433286> {0} : <:icoT_GER:1060219972871278602> {1}"
-
+score_format_ger_uk = "<:icoT_UK:1114060867068235807> {0} : <:icoT_GER:1060219972871278602> {1}"
 
 [display.gamestate.footer]
 # Display order is {footer_text} {last_refresh_text} {timestamp}

@@ -224,6 +224,7 @@ class DisplayGamestateConfig(pydantic.BaseModel):
     score_format: str
     score_format_ger_us: str | None
     score_format_ger_rus: str | None
+    score_format_ger_uk: str | None
     footer: DisplayFooterConfig
     embeds: list[GamestateEmbedConfig]
 

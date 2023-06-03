@@ -6,10 +6,10 @@ from loguru import logger
 
 from hll_server_status import constants
 from hll_server_status.io import (
+    load_config,
     load_message_ids,
     queue_webhook_update,
     send_queued_webhook_update,
-    load_config,
 )
 from hll_server_status.models import AppStore
 
@@ -32,7 +32,6 @@ async def main():
 
     config_files: list[tuple[AppStore, Path]] = []
     for config_file_path in Path(constants.CONFIG_DIR).iterdir():
-
         # Give each config file its own log file
         _logger = deepcopy(logger)
         _logger.add(

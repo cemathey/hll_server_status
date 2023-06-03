@@ -218,6 +218,11 @@ async def build_gamestate(
                 and gamestate["current_map"].raw_name in constants.RUSSIAN_MAPS
             ):
                 format_str = config.display.gamestate.score_format_ger_rus
+            elif (
+                config.display.gamestate.score_format_ger_uk
+                and gamestate["current_map"].raw_name in constants.UK_MAPS
+            ):
+                format_str = config.display.gamestate.score_format_ger_uk
             else:
                 format_str = config.display.gamestate.score_format
 

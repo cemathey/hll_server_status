@@ -57,13 +57,19 @@ ALL_MAPS: Final = (
     "carentan_offensive_ger",
     "carentan_offensive_us",
     "carentan_warfare",
+    "driel_offensive_ger",
+    "driel_offensive_us",
+    "driel_warfare",
+    "elalamein_offensive_CW",
+    "elalamein_offensive_ger",
+    "elalamein_warfare",
     "foy_offensive_ger",
     "foy_offensive_us",
     "foy_warfare_night",
     "foy_warfare",
     "hill400_offensive_ger",
-    "hill400_offensive_US",
     "hill400_offensive_us",
+    "hill400_offensive_US",
     "hill400_warfare",
     "hurtgenforest_offensive_ger",
     "hurtgenforest_offensive_US",
@@ -106,13 +112,19 @@ LONG_HUMAN_MAP_NAMES: Final = {
     "carentan_offensive_ger": "Carentan Offensive GER",
     "carentan_offensive_us": "Carentan Offensive US",
     "carentan_warfare": "Carentan",
+    "driel_offensive_ger": "Driel Offensive (GER)",
+    "driel_offensive_us": "Driel Offensive (UK)",
+    "driel_warfare": "Driel",
+    "elalamein_offensive_CW": "El Alamein Offensive (UK)",
+    "elalamein_offensive_ger": "El Alamein Offensive (GER)",
+    "elalamein_warfare": "El Alamein",
     "foy_offensive_ger": "Foy Offensive GER",
     "foy_offensive_us": "Foy Offensive US",
     "foy_warfare_night": "Foy Night",
     "foy_warfare": "Foy",
     "hill400_offensive_ger": "Hill 400 Offensive GER",
-    "hill400_offensive_US": "Hill 400 Offensive US",
     "hill400_offensive_us": "Hill 400 Offensive US",
+    "hill400_offensive_US": "Hill 400 Offensive US",
     "hill400_warfare": "Hill 400",
     "hurtgenforest_offensive_ger": "Hurtgen Forest Offensive GER",
     "hurtgenforest_offensive_US": "Hurtgen Forest Offensive US",
@@ -151,6 +163,8 @@ LONG_HUMAN_MAP_NAMES: Final = {
 }
 
 MAP_TO_PICTURE: Final = {
+    "driel": "driel.webp",
+    "elalamein": "elalamein.webp",
     "carentan": "carentan.webp",
     "foy": "foy.webp",
     "hill400": "hill400.webp",
@@ -217,6 +231,15 @@ US_MAPS: Final = (
     "utahbeach_offensive_ger",
     "utahbeach_offensive_us",
     "utahbeach_warfare",
+)
+
+UK_MAPS: Final = (
+    "driel_offensive_ger",
+    "driel_offensive_us",
+    "driel_warfare",
+    "elalamein_offensive_CW",
+    "elalamein_offensive_ger",
+    "elalamein_warfare",
 )
 
 # TODO: Update with British maps on U14 release
