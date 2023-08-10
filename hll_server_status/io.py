@@ -563,7 +563,7 @@ async def send_for_webhook(
             f"This message was rate limited by Discord retrying after {e.retry_after:.2f} seconds"
         )
         await trio.sleep(e.retry_after)
-    except requests.exceptions.ConnectionError as e:
+    except requests.exceptions.ConnectionError:
         app_store.logger.error(f"Connection error with url={webhook.url}")
         await trio.sleep(config.settings.disabled_section_sleep_timer)
 
