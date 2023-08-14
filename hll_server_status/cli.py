@@ -1,3 +1,4 @@
+import logging.config
 from copy import deepcopy
 from pathlib import Path
 
@@ -12,6 +13,15 @@ from hll_server_status.io import (
     send_queued_webhook_update,
 )
 from hll_server_status.models import AppStore
+
+# Disable logging so discord_webhook doesn't log for us
+logging.config.dictConfig(
+    {
+        "version": 1,
+        # Other configs ...
+        "disable_existing_loggers": True,
+    }
+)
 
 
 async def main():

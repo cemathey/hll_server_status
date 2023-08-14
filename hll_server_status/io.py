@@ -1,19 +1,20 @@
+import json
 import time
 import tomllib
 from copy import copy
-from functools import partial, wraps
+from functools import wraps
 from itertools import cycle
 from pathlib import Path
 from typing import Any, Callable
 
-import discord
+import discord_webhook
 import httpx
-import requests
 import tomlkit
 import trio
 from loguru import logger
 
 from hll_server_status import constants
+from hll_server_status.exceptions import RateLimited
 from hll_server_status.models import (
     APIConfig,
     AppStore,
@@ -51,7 +52,7 @@ def calculate_sleep_time(
 
 def get_producer_config_values(config: Config, key: str) -> tuple[bool, int, Callable]:
     """Return the state, refresh delay and appropriate function for a given key (section)"""
-    KEYS_TO_CONFIG_LOOKUP = {
+    KEYS_TO_CONFIG_LOOKUP: dict[str, tuple[bool, int, Callable]] = {
         "header": (
             config.display.header.enabled,
             config.display.header.time_between_refreshes,
@@ -94,10 +95,7 @@ async def queue_webhook_update(
     # enabled = True
     config_update_timestamp_ns = 0
 
-    # Not using an async webhook since trio and aiohttp are incompatible
-    # not a big deal since we're only blocking within each individual
-    # Discord message and not preventing any others from updating
-    webhook = discord.SyncWebhook.from_url(config.discord.webhook_url)
+    webhook_url = config.discord.webhook_url
 
     # pylance complains about this even though it's valid with tomlkit
     message_id = app_store.message_ids[table_name][toml_section_key]  # type: ignore
@@ -141,7 +139,6 @@ async def queue_webhook_update(
                         )
                         break
 
-                    webhook = discord.SyncWebhook.from_url(config.discord.webhook_url)
                     # pylance complains about this even though it's valid with tomlkit
                     message_id = app_store.message_ids[table_name][toml_section_key]  # type: ignore
 
@@ -159,12 +156,12 @@ async def queue_webhook_update(
                     kill_task = True
 
             if kill_task:
-                logger.error(f"Shutting down {job_key} due to a fatal error")
+                app_store.logger.error(f"Shutting down {job_key} due to a fatal error")
                 break
 
             if not enabled:
                 time_to_sleep = config.settings.disabled_section_sleep_timer
-                logger.info(
+                app_store.logger.info(
                     f"Section not enabled, sleeping for {time_to_sleep} seconds"
                 )
                 await trio.sleep(time_to_sleep)
@@ -179,7 +176,7 @@ async def queue_webhook_update(
                         (
                             app_store,
                             config,
-                            webhook,
+                            webhook_url,
                             table_name,
                             toml_section_key,
                             message_id,
@@ -201,11 +198,12 @@ async def queue_webhook_update(
                 except* (
                     httpx.RequestError,
                     httpx.HTTPStatusError,
-                    requests.ConnectionError,
                 ) as e:
                     # TODO: better backoff system
                     backoff = next(back_offs)
-                    logger.error(f"{e} in {job_key} sleeping for {backoff} seconds")
+                    app_store.logger.error(
+                        f"{e} in {job_key} sleeping for {backoff} seconds"
+                    )
                     await trio.sleep(backoff)
 
 
@@ -213,24 +211,25 @@ async def send_queued_webhook_update(receive_channel, job_key: str):
     """Retrieve a queued update for this sections webhook, send it to Discord and save the message ID"""
     app_store: AppStore
     config: Config
-    webhook: discord.SyncWebhook
+    webhook_url: str
     table_name: str
     key: str
     message_id: int | None
     content: str | None = None
-    embed: discord.Embed | None = None
+    embed: discord_webhook.DiscordEmbed | None = None
 
-    async for app_store, config, webhook, table_name, key, message_id, content, embed in receive_channel:
+    async for app_store, config, webhook_url, table_name, key, message_id, content, embed in receive_channel:
         try:
             message_id = await send_for_webhook(
                 app_store,
                 config,
                 key,
-                webhook,
+                webhook_url,
                 message_id,
                 content=content,
                 embed=embed,
             )
+            app_store.logger.debug(f"Received {message_id=} from send_for_webhook")
             await save_message_id(
                 app_store, table_name=table_name, key=key, message_id=message_id
             )
@@ -242,9 +241,12 @@ async def send_queued_webhook_update(receive_channel, job_key: str):
             ):
                 await save_message_ids_to_disk(app_store, config)
                 app_store.last_saved_message_ids = copy(app_store.message_ids)
-        except Exception as e:
+        except (Exception, KeyboardInterrupt) as e:
             # try to save the current message IDs if there's an exception to avoid orphaned
             # messages
+            app_store.logger.warning(
+                f"Saving message IDs after crashing exception {table_name=} {key=} {message_id=}"
+            )
             await save_message_id(
                 app_store, table_name=table_name, key=key, message_id=message_id
             )
@@ -377,7 +379,7 @@ async def load_message_ids_from_disk(
 
     file = trio.Path(path, filename)
     app_store.logger.info(f"Loading Discord message IDs from {file}")
-    async with await file.open() as fp:
+    async with await trio.open_file(file) as fp:
         # pylance doesn't understand the return type even though it's a string
         contents: str = await fp.read()  # type: ignore
 
@@ -529,42 +531,60 @@ async def send_for_webhook(
     app_store: AppStore,
     config: Config,
     key: str,
-    webhook: discord.SyncWebhook,
+    webhook_url: str,
     message_id: int | None = None,
-    embed: discord.Embed | None = None,
+    embed: discord_webhook.DiscordEmbed | None = None,
     content: str | None = None,
 ) -> int | None:
     """Send the content/embed for a given webhook and return the message ID"""
     if content is None:
         content = ""
 
+    webhook = discord_webhook.AsyncDiscordWebhook(
+        url=webhook_url, with_retry=False, id=str(message_id)
+    )
+
+    app_store.logger.warning(f"Created webhook id={webhook.id} {type(webhook.id)=}")
+
     if message_id:
         log_message = f"Editing {key} message ID={message_id}"
-        func = partial(
-            webhook.edit_message, message_id=message_id, content=content, embed=embed
-        )
+        webhook.content = content
+        if embed and embed not in webhook.embeds:
+            webhook.add_embed(embed)
     else:
-        log_message = f"Creating new {key} Discord message"
-        if embed:
-            func = partial(webhook.send, content=content, embed=embed, wait=True)
-        else:
-            func = partial(webhook.send, content=content, wait=True)
+        log_message = f"Creating new {key} Discord message {message_id=}"
+        webhook.content = content
+        if embed and embed not in webhook.embeds:
+            webhook.add_embed(embed)
 
     try:
+        app_store.logger.warning(f"send_for_webhook {message_id=}")
+        if message_id:
+            response = await webhook.edit()
+        else:
+            response = await webhook.execute()
+        app_store.logger.warning(f"executed webhook={webhook.id}")
+        if webhook.id:
+            message_id = int(webhook.id)
+        if response.status_code == 404:
+            app_store.logger.error(f"404")
+            response.raise_for_status()
+        elif response.status_code == 429:
+            errors = json.loads(response.content.decode("utf-8"))
+            retry_after = float(errors["retry_after"]) + 0.15
+            raise RateLimited(retry_after=retry_after)
         app_store.logger.info(log_message)
-        message_id = func().id
-    except discord.errors.NotFound:
-        app_store.logger.warning(
-            f"Tried to edit non-existent {key} message ID={message_id}"
-        )
-        message_id = None
-    except discord.errors.RateLimited as e:
+    except RateLimited as e:
         app_store.logger.warning(
             f"This message was rate limited by Discord retrying after {e.retry_after:.2f} seconds"
         )
         await trio.sleep(e.retry_after)
-    except requests.exceptions.ConnectionError:
+    except httpx.ConnectError:
         app_store.logger.error(f"Connection error with url={webhook.url}")
         await trio.sleep(config.settings.disabled_section_sleep_timer)
-
+    except httpx.HTTPError:
+        app_store.logger.warning(
+            f"Tried to edit non-existent {key} message ID={message_id}"
+        )
+        message_id = None
     return message_id

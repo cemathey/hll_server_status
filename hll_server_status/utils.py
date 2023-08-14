@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-import discord
+import discord_webhook
 
 from hll_server_status import constants
 from hll_server_status.models import URL, AppStore, Config, Map
@@ -120,7 +120,7 @@ async def build_header(
     app_store: AppStore,
     config: Config,
     get_api_result: Callable,
-) -> tuple[str | None, discord.Embed | None]:
+) -> tuple[str | None, discord_webhook.DiscordEmbed | None]:
     """Build up the Discord.Embed for the header message"""
     ENDPOINTS_TO_PARSERS = {
         "get_gamestate": parse_gamestate,
@@ -137,7 +137,7 @@ async def build_header(
 
     # TODO: Add map vote info
 
-    header_embed = discord.Embed()
+    header_embed = discord_webhook.DiscordEmbed()
 
     result = await get_api_result(app_store, config, endpoint="get_status")
 
@@ -153,12 +153,12 @@ async def build_header(
             header_embed.title = server_name.short_name
 
     if url := config.display.header.quick_connect_url:
-        header_embed.add_field(
+        header_embed.add_embed_field(
             name=config.display.header.quick_connect_name, value=url, inline=False
         )
 
     if url := config.display.header.battlemetrics_url:
-        header_embed.add_field(
+        header_embed.add_embed_field(
             name=config.display.header.battlemetrics_name, value=url, inline=False
         )
 
@@ -168,7 +168,9 @@ async def build_header(
             result = await get_api_result(app_store, config, endpoint=endpoint)
             parser = ENDPOINTS_TO_PARSERS[endpoint]
             value = parser(result)
-            header_embed.add_field(name=option.name, value=value, inline=option.inline)
+            header_embed.add_embed_field(
+                name=option.name, value=value, inline=option.inline
+            )
 
     footer_text = ""
     if config.display.header.footer.enabled:
@@ -177,7 +179,7 @@ async def build_header(
     if config.display.header.footer.include_timestamp:
         if footer_text:
             header_embed.set_footer(text=footer_text)
-        header_embed.timestamp = datetime.now()
+        header_embed.timestamp = datetime.now().isoformat()
 
     return None, header_embed
 
@@ -187,9 +189,9 @@ async def build_gamestate(
     config: Config,
     get_api_result: Callable,
     endpoint: str = "get_gamestate",
-) -> tuple[str | None, discord.Embed | None]:
+) -> tuple[str | None, discord_webhook.DiscordEmbed | None]:
     """Build up the Discord.Embed for the gamestate message"""
-    gamestate_embed = discord.Embed()
+    gamestate_embed = discord_webhook.DiscordEmbed()
 
     result: dict[str, Any] = await get_api_result(app_store, config, endpoint=endpoint)
     gamestate = parse_gamestate(app_store, result)
@@ -246,7 +248,9 @@ async def build_gamestate(
                 f"Invalid {option.value} in [[display.gamestate.embeds]] for {app_store.server_identifier}"
             )
 
-        gamestate_embed.add_field(name=option.name, value=value, inline=option.inline)
+        gamestate_embed.add_embed_field(
+            name=option.name, value=value, inline=option.inline
+        )
 
     if config.display.gamestate.footer.enabled:
         footer_text = f"{config.display.gamestate.footer.footer_text}{config.display.gamestate.footer.last_refresh_text}"
@@ -254,7 +258,7 @@ async def build_gamestate(
         if config.display.gamestate.footer.include_timestamp:
             if footer_text:
                 gamestate_embed.set_footer(text=footer_text)
-            gamestate_embed.timestamp = datetime.now()
+            gamestate_embed.timestamp = datetime.now().isoformat()
 
     return None, gamestate_embed
 
@@ -264,7 +268,7 @@ async def build_map_rotation_color(
     config: Config,
     get_api_result: Callable,
     endpoint: str = "get_map_rotation",
-) -> tuple[str | None, discord.Embed | None]:
+) -> tuple[str | None, discord_webhook.DiscordEmbed | None]:
     """Build up the content str for the map rotation color message"""
     app_store.logger.error(app_store)
     app_store.logger.error(config)
@@ -338,7 +342,7 @@ async def build_map_rotation_embed(
     config: Config,
     get_api_result: Callable,
     endpoint: str = "get_map_rotation",
-) -> tuple[str | None, discord.Embed | None]:
+) -> tuple[str | None, discord_webhook.DiscordEmbed | None]:
     """Build up the Discord.Embed for the map rotation embed message"""
     result = await get_api_result(app_store, config, endpoint=endpoint)
     map_rotation = parse_map_rotation(result)
@@ -356,7 +360,7 @@ async def build_map_rotation_embed(
     app_store.logger.debug(f"current map positions embed {current_map_positions=}")
     app_store.logger.debug(f"next map positions embed {next_map_positions}")
 
-    map_rotation_embed = discord.Embed()
+    map_rotation_embed = discord_webhook.DiscordEmbed()
 
     description = []
     for idx, map in enumerate(map_rotation):
@@ -377,7 +381,7 @@ async def build_map_rotation_embed(
     if config.display.map_rotation.embed.display_legend:
         description.append(config.display.map_rotation.embed.legend)
 
-    map_rotation_embed.add_field(
+    map_rotation_embed.add_embed_field(
         name=config.display.map_rotation.embed.title, value="\n".join(description)
     )
 
@@ -388,6 +392,6 @@ async def build_map_rotation_embed(
         if config.display.map_rotation.embed.footer.include_timestamp:
             if footer_text:
                 map_rotation_embed.set_footer(text=footer_text)
-            map_rotation_embed.timestamp = datetime.now()
+            map_rotation_embed.timestamp = datetime.now().isoformat()
 
     return None, map_rotation_embed
