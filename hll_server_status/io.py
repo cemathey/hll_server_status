@@ -494,7 +494,7 @@ async def get_api_result(
         api_prefix = constants.API_PREFIX
 
     async with httpx.AsyncClient() as client:
-        response = await client.post(
+        response = await client.get(
             url=base_url + api_prefix + endpoint, cookies=app_store.cookies
         )
 
