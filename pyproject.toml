@@ -22,7 +22,7 @@ anyio = "^3.7.1"
 
 [tool.poetry.group.dev.dependencies]
 loguru-mypy = "^0.0.4"
-black = "^23.1.0"
+black = "^23.10.1"
 isort = "^5.12.0"
 flake8-trio = "^23.5.1"
 
