@@ -264,6 +264,8 @@ class DisplayMapRotationEmbedConfig(pydantic.BaseModel):
     display_legend: bool
     legend: str
     footer: DisplayFooterConfig
+    bm_banner_enabled: bool
+    bm_banner_url: str
 
 
 class DisplayConfigMapRotation(pydantic.BaseModel):

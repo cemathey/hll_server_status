@@ -1,6 +1,7 @@
 import logging
 import sys
-from datetime import datetime
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -377,6 +378,11 @@ async def build_map_rotation_embed(
     map_rotation_embed.add_embed_field(
         name=config.display.map_rotation.embed.title, value="\n".join(description)
     )
+    
+    if config.display.map_rotation.embed.bm_banner_enabled:
+        timestamp = int(time.time()*1000)
+        url = config.display.map_rotation.embed.bm_banner_url + "?id=" + str(timestamp)
+        map_rotation_embed.set_image(url=url)
 
     footer_text = ""
     if config.display.map_rotation.embed.footer.enabled:
