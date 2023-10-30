@@ -101,8 +101,10 @@ def get_map_picture_url(
     try:
         base_map_name, _ = map.raw_name.split("_", maxsplit=1)
     except ValueError:
-        # Most likely an update has dropped and a new map exists
         base_map_name = map.raw_name
+
+    if "night" in map.raw_name.lower():
+        base_map_name = base_map_name + "_night"
 
     try:
         map_to_picture = constants.MAP_TO_PICTURE[base_map_name]
