@@ -37,9 +37,6 @@ async def main():
         rotation=constants.LOG_SIZE,
     )
 
-    # TODO: Change this to shell script run by Docker
-    # bootstrap(root_logger)
-
     config_files: list[tuple[AppStore, Path]] = []
     for config_file_path in Path(constants.CONFIG_DIR).iterdir():
         # Give each config file its own log file
