@@ -1,14 +1,20 @@
 # syntax=docker/dockerfile:1
 FROM python:3.11-slim-buster
 
-RUN apt update -y && apt upgrade --no-install-recommends -y
-RUN apt install curl -y
+ARG APP_NAME=hll_server_status
 
 WORKDIR /code
-
-COPY . .
-
+RUN apt update -y \
+    && apt upgrade --no-install-recommends -y \ 
+    curl \
+    build-essential
 RUN curl -sSL https://install.python-poetry.org | python3 -
 ENV PATH="/root/.local/bin:$PATH"
-RUN poetry install
-CMD poetry run python ./hll_server_status/cli.py
+COPY poetry.lock pyproject.toml ./
+RUN poetry install --no-root
+
+COPY ./${APP_NAME} ${APP_NAME}
+COPY ./entrypoint.sh entrypoint.sh
+
+RUN chmod +x entrypoint.sh
+ENTRYPOINT [ "/code/entrypoint.sh" ]
