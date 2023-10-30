@@ -18,15 +18,6 @@ from hll_server_status.parsers import (
 )
 
 
-def bootstrap(logger: logging.Logger, directories=constants.MANDATORY_DIRECTORIES):
-    for directory in directories:
-        try:
-            Path(directory).mkdir(exist_ok=True)
-        except FileNotFoundError:
-            logger.error(f"Unable to create {directory}")
-            sys.exit(1)
-
-
 def guess_current_map_rotation_positions(
     rotation: list[Map], current_map: Map, next_map: Map
 ) -> list[int]:
