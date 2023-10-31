@@ -8,7 +8,7 @@ packages = [{ include = "hll_server_status" }]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-nox = "^2022.11.21"
+nox = "^2023.4.22"
 pydantic = "2.4.2"
 python-dateutil = "^2.8.2"
 tomlkit = "^0.12.1"
