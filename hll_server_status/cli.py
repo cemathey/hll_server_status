@@ -10,6 +10,7 @@ from hll_server_status.io import (
     load_config,
     load_message_ids,
     queue_webhook_update,
+    save_message_ids_to_disk,
     send_queued_webhook_update,
 )
 from hll_server_status.models import AppStore
@@ -64,51 +65,64 @@ async def main():
         "gamestate",
         "map_rotation_color",
         "map_rotation_embed",
+        "player_stats",
     )
     table_name = constants.MESSAGE_ID_FORMAT["table_name"]
 
     # Use a 0 size buffer so we never queue another attempt until the previous one has been
     # received since these are all snap shots and producing faster than we can consume is
     # negative value
-    send_channel, receive_channel = trio.open_memory_channel(0)
-    async with trio.open_nursery() as nursery:
-        async with send_channel, receive_channel:
-            for app_store, config_file_path in config_files:
-                default_logger.info(
-                    f"Starting {config_file_path} check log files for further output"
-                )
-                print(f"Starting {config_file_path} check log files for further output")
-
-                app_store.logger.info(f"Reading config file for {config_file_path}")
-                try:
-                    config = load_config(config_file_path)
-                except (KeyError, ValueError) as e:
-                    app_store.logger.error(
-                        f"{e} while loading config from {config_file_path}"
+    try:
+        send_channel, receive_channel = trio.open_memory_channel(0)
+        async with trio.open_nursery() as nursery:
+            async with send_channel, receive_channel:
+                for app_store, config_file_path in config_files:
+                    default_logger.info(
+                        f"Starting {config_file_path} check log files for further output"
                     )
-                    continue
-
-                for section_key in toml_section_keys:
-                    job_key = f"{app_store.server_identifier}:{section_key}"
-
-                    # Create a unique queue for each section in each config file so they can all update
-                    # independently of each other
-                    send_channel_clone = send_channel.clone()
-                    receive_channel_clone = receive_channel.clone()
-
-                    nursery.start_soon(
-                        queue_webhook_update,
-                        send_channel_clone,
-                        job_key,
-                        config,
-                        config_file_path,
-                        app_store,
-                        table_name,
-                        section_key,
+                    print(
+                        f"Starting {config_file_path} check log files for further output"
                     )
-                    nursery.start_soon(
-                        send_queued_webhook_update, receive_channel_clone, job_key
-                    )
+
+                    app_store.logger.info(f"Reading config file for {config_file_path}")
+                    try:
+                        config = load_config(app_store, config_file_path)
+                    except (KeyError, ValueError) as e:
+                        app_store.logger.error(
+                            f"{e} while loading config from {config_file_path}"
+                        )
+                        continue
+
+                    for section_key in toml_section_keys:
+                        job_key = f"{app_store.server_identifier}:{section_key}"
+
+                        # Create a unique queue for each section in each config file so they can all update
+                        # independently of each other
+                        send_channel_clone = send_channel.clone()
+                        receive_channel_clone = receive_channel.clone()
+
+                        nursery.start_soon(
+                            queue_webhook_update,
+                            send_channel_clone,
+                            job_key,
+                            config,
+                            config_file_path,
+                            app_store,
+                            table_name,
+                            section_key,
+                        )
+                        nursery.start_soon(
+                            send_queued_webhook_update, receive_channel_clone, job_key
+                        )
+    except Exception as e:
+        raise e
+    finally:
+        # Make one final attempt to save all of our message IDs to disk
+        # otherwise unlucky KeyboardInterrupt timings or other exceptions
+        # can cause them to not be written after a message has been created
+        # and leave them orphaned in Discord, which users hate!
+        for app_store, _ in config_files:
+            await save_message_ids_to_disk(app_store, None)
 
 
 if __name__ == "__main__":
