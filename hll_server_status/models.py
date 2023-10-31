@@ -212,7 +212,7 @@ class DiscordConfig(pydantic.BaseModel):
 
 
 class APIConfig(pydantic.BaseModel):
-    base_server_url: str
+    base_server_url: pydantic.HttpUrl
     username: str
     password: str
 
