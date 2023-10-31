@@ -46,6 +46,7 @@ async def main():
             f"{constants.LOG_DIR}/{config_file_path.stem}.{constants.LOG_EXTENSION}",
             format=constants.LOG_FORMAT,
             rotation=constants.LOG_SIZE,
+            retention=constants.LOG_RETENTION_DAYS,
         )
         app_store = AppStore(
             server_identifier=config_file_path.stem,

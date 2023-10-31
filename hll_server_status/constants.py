@@ -20,6 +20,7 @@ MESSAGE_FILE_FORMAT = "{key}.toml"
 
 LOG_EXTENSION: Final = "log"
 LOG_SIZE: Final = "5 MB"
+LOG_RETENTION_DAYS: Final = "3 days"
 LOG_FORMAT: Final = "{time:YYYY-MM-DD at HH:mm:ss} {level} {message}"
 
 API_PREFIX: Final = "api/"
