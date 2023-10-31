@@ -216,13 +216,6 @@ class APIConfig(pydantic.BaseModel):
     username: str
     password: str
 
-    @pydantic.validator("base_server_url")
-    def must_include_trailing_slash(cls, value: str):
-        if not value.endswith("/"):
-            return value + "/"
-
-        return value
-
 
 class DisplayEmbedConfig(pydantic.BaseModel):
     name: str

@@ -495,7 +495,7 @@ def login(
 
     params = LoginParameters(username=username, password=password)
     cookie: str | None = None
-    url: str = config.api.base_server_url + api_prefix + endpoint
+    url: str = str(config.api.base_server_url) + api_prefix + endpoint
 
     try:
         # Use a blocking request since nothing else can proceed anyway until we log in
@@ -524,7 +524,7 @@ async def get_api_result(
     config: Config,
     endpoint: str,
     api_prefix: str | None = None,
-    base_url: str | None = None,
+    base_url: pydantic.HttpUrl | None = None,
 ) -> dict[str, Any]:
     """Call the CRCON API endpoint and return the unparsed result"""
     if base_url is None:
@@ -535,7 +535,7 @@ async def get_api_result(
 
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            url=base_url + api_prefix + endpoint, cookies=app_store.cookies
+            url=str(base_url) + api_prefix + endpoint, cookies=app_store.cookies
         )
 
     if response.status_code == 401:

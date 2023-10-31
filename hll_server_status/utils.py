@@ -103,7 +103,7 @@ def get_map_picture_url(
         # Most likely an update has dropped and a new map exists
         map_to_picture = base_map_name + ".webp"
 
-    url = config.api.base_server_url + map_prefix + map_to_picture
+    url = str(config.api.base_server_url) + map_prefix + map_to_picture
 
     # This is valid even though pylance complains about it
     return URL(url=url)  # type: ignore
