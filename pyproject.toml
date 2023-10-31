@@ -24,6 +24,7 @@ loguru-mypy = "^0.0.4"
 black = "^23.10.1"
 isort = "^5.12.0"
 flake8-trio = "^23.5.1"
+pre-commit = "^3.5.0"
 
 [tool.isort]
 profile = "black"
