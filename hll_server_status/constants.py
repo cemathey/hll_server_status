@@ -1,3 +1,4 @@
+import enum
 from typing import Final
 
 from hll_server_status.models import MessageIDFormat
@@ -14,6 +15,8 @@ MESSAGES_DIR: Final = "messages/"
 LOG_DIR: Final = "logs/"
 
 MANDATORY_DIRECTORIES: Final = (CONFIG_DIR, MESSAGES_DIR, LOG_DIR)
+
+MESSAGE_FILE_FORMAT = "{key}.toml"
 
 LOG_EXTENSION: Final = "log"
 LOG_SIZE: Final = "5 MB"
@@ -39,6 +42,36 @@ GAMESTATE_EMBEDS: Final = (
     "time_remaining",
     "current_map",
     "next_map",
+    EMPTY_EMBED,
+)
+
+
+class PlayerStatsEnum(enum.Enum):
+    highest_kills = "highest_kills"
+    kills_per_minute = "kills_per_minute"
+    highest_deaths = "highest_deaths"
+    deaths_per_minute = "deaths_per_minute"
+    highest_kdr = "highest_kdr"
+    kill_streak = "kill_streak"
+    death_streak = "death_streak"
+    highest_team_kills = "highest_team_kills"
+    team_kill_streak = "team_kill_streak"
+    longest_life = "longest_life"
+    shortest_life = "shortest_life"
+
+
+PLAYER_STATS_EMBEDS: Final = (
+    PlayerStatsEnum.highest_kills.value,
+    PlayerStatsEnum.kills_per_minute.value,
+    PlayerStatsEnum.highest_deaths.value,
+    PlayerStatsEnum.deaths_per_minute.value,
+    PlayerStatsEnum.highest_kdr.value,
+    PlayerStatsEnum.kill_streak.value,
+    PlayerStatsEnum.death_streak.value,
+    PlayerStatsEnum.highest_team_kills.value,
+    PlayerStatsEnum.team_kill_streak.value,
+    PlayerStatsEnum.longest_life.value,
+    PlayerStatsEnum.shortest_life.value,
     EMPTY_EMBED,
 )
 

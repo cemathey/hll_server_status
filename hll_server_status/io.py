@@ -9,7 +9,9 @@ from typing import Any, Callable
 
 import discord_webhook
 import httpx
+import pydantic
 import tomlkit
+import tomlkit.exceptions
 import trio
 from loguru import logger
 
@@ -31,6 +33,7 @@ from hll_server_status.utils import (
     build_header,
     build_map_rotation_color,
     build_map_rotation_embed,
+    build_player_stats_embed,
 )
 
 
@@ -73,6 +76,11 @@ def get_producer_config_values(config: Config, key: str) -> tuple[bool, int, Cal
             config.display.map_rotation.embed.time_between_refreshes,
             build_map_rotation_embed,
         ),
+        "player_stats": (
+            config.display.player_stats.enabled,
+            config.display.player_stats.time_between_refreshes,
+            build_player_stats_embed,
+        ),
     }
     return KEYS_TO_CONFIG_LOOKUP[key]
 
@@ -96,9 +104,6 @@ async def queue_webhook_update(
     config_update_timestamp_ns = 0
 
     webhook_url = config.discord.webhook_url
-
-    # pylance complains about this even though it's valid with tomlkit
-    message_id = app_store.message_ids[table_name][toml_section_key]  # type: ignore
 
     # Get the information for this specific section
     (
@@ -132,15 +137,12 @@ async def queue_webhook_update(
                         f"{enabled=} key={toml_section_key} {job_key=} {content_embed_creator_func=}"
                     )
                     try:
-                        config = load_config(config_file_path)
+                        config = load_config(app_store, config_file_path)
                     except (KeyError, ValueError) as e:
                         app_store.logger.error(
                             f"{e} while loading config from {config_file_path}"
                         )
                         break
-
-                    # pylance complains about this even though it's valid with tomlkit
-                    message_id = app_store.message_ids[table_name][toml_section_key]  # type: ignore
 
                     (
                         enabled,
@@ -167,8 +169,11 @@ async def queue_webhook_update(
                 await trio.sleep(time_to_sleep)
             else:
                 try:
-                    # pylance complains about this even though it's valid with tomlkit
-                    message_id = app_store.message_ids[table_name][toml_section_key]  # type: ignore
+                    try:
+                        # pylance complains about this even though it's valid with tomlkit
+                        message_id = app_store.message_ids[table_name][toml_section_key]  # type: ignore
+                    except tomlkit.exceptions.NonExistentKey:
+                        message_id = None
                     content, embed = await content_embed_creator_func(
                         app_store, config, get_api_result
                     )
@@ -211,7 +216,7 @@ async def send_queued_webhook_update(receive_channel, job_key: str):
     """Retrieve a queued update for this sections webhook, send it to Discord and save the message ID"""
     app_store: AppStore
     config: Config
-    webhook_url: str
+    webhook_url: pydantic.HttpUrl
     table_name: str
     key: str
     message_id: int | None
@@ -254,19 +259,54 @@ async def send_queued_webhook_update(receive_channel, job_key: str):
             raise e
 
 
-def load_config(file_path: Path) -> Config:
+def load_config(app_store: AppStore, file_path: Path) -> Config:
     """Load and validate a TOML config file"""
     raw_config: dict[str, Any]
 
     with open(file_path, mode="rb") as fp:
         raw_config = tomllib.load(fp)
 
+    key = "settings"
+    try:
+        settings_config = SettingsConfig(**raw_config[key])
+    except pydantic.ValidationError:
+        app_store.logger.error(f"validating {file_path}, check your [{key}] section")
+        raise
+
+    key = "output"
+    try:
+        output_config = OutputConfig(**raw_config[key])
+    except pydantic.ValidationError:
+        app_store.logger.error(f"validating {file_path}, check your [{key}] section")
+        raise
+
+    key = "discord"
+    try:
+        discord_config = DiscordConfig(**raw_config[key])
+    except pydantic.ValidationError:
+        app_store.logger.error(f"validating {file_path}, check your [{key}] section")
+        raise
+
+    key = "api"
+    try:
+        api_config = APIConfig(**raw_config[key])
+    except pydantic.ValidationError:
+        app_store.logger.error(f"validating {file_path}, check your [{key}] section")
+        raise
+
+    key = "display"
+    try:
+        display_config = DisplayConfig(**raw_config[key])
+    except pydantic.ValidationError:
+        app_store.logger.error(f"validating {file_path}, check your [{key}] section")
+        raise
+
     config = Config(
-        settings=SettingsConfig(**raw_config["settings"]),
-        output=OutputConfig(**raw_config["output"]),
-        discord=DiscordConfig(**raw_config["discord"]),
-        api=APIConfig(**raw_config["api"]),
-        display=DisplayConfig(**raw_config["display"]),
+        settings=settings_config,
+        output=output_config,
+        discord=discord_config,
+        api=api_config,
+        display=display_config,
     )
 
     return config
@@ -286,22 +326,22 @@ async def save_message_id(
 
 async def save_message_ids_to_disk(
     app_store: AppStore,
-    config: Config,
+    config: Config | None,
     path: str | None = None,
     filename: str | None = None,
 ) -> None:
     """Save the current message IDs for a specific config to disk"""
-    if config.output.message_id_directory:
+    if config and config.output.message_id_directory:
         path = config.output.message_id_directory
 
-    if config.output.message_id_filename:
+    if config and config.output.message_id_filename:
         filename = config.output.message_id_filename
 
-    if not path:
+    if path is None:
         path = constants.MESSAGES_DIR
 
-    if not filename:
-        filename = app_store.server_identifier + ".toml"
+    if filename is None:
+        filename = constants.MESSAGE_FILE_FORMAT.format(key=app_store.server_identifier)
 
     file = Path(path, filename)
 
@@ -531,7 +571,7 @@ async def send_for_webhook(
     app_store: AppStore,
     config: Config,
     key: str,
-    webhook_url: str,
+    webhook_url: pydantic.HttpUrl,
     message_id: int | None = None,
     embed: discord_webhook.DiscordEmbed | None = None,
     content: str | None = None,
@@ -541,7 +581,7 @@ async def send_for_webhook(
         content = ""
 
     webhook = discord_webhook.AsyncDiscordWebhook(
-        url=webhook_url, with_retry=False, id=str(message_id)
+        url=str(webhook_url), with_retry=False, id=str(message_id)
     )
 
     app_store.logger.warning(f"Created webhook id={webhook.id} {type(webhook.id)=}")

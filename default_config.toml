@@ -244,9 +244,7 @@ Last refreshed <t:{0}:R>
 
 ####################################
 #                                  #
-#           Map Rotation           #
-#             (embed)              #
-#         Message Section          #
+#   Map Rotation Message Section   #
 #                                  #
 ####################################
 
@@ -273,6 +271,132 @@ Legend
 """
 
 [display.map_rotation.embed.footer]
+# Display order is {footer_text} {last_refresh_text} {timestamp}
+# spacing, newlines, etc. are up to you
+
+# Include the embed footer or not
+enabled = true
+
+# Text to include in the footer
+# useful if you're using the same webhook for multiple servers and 
+# need to differentiate the individual messages
+# You can include spaces, newlines \n etc. as desired to format this
+# set to "" to disable 
+footer_text = """
+"""
+# Include the last refresh time in the footer of the message
+include_timestamp = true
+
+# Set to "" to disable
+last_refresh_text = "Last refreshed"
+
+####################################
+#                                  #
+#           Player Stats           #
+#             (embed)              #
+#         Message Section          #
+#                                  #
+####################################
+
+# Display player stats as Discord Embed of fields
+[display.player_stats]
+enabled = true
+# In seconds, there is a lower limit on how fast you can refresh
+# as determined by the delay time between calling your CRCON and then sending the message to Discord
+time_between_refreshes = 5
+display_title = true
+title = "Player Stats"
+
+num_to_display = 10
+
+# A list of Discord Embeds for values from the CRCON API get_live_game_stats call
+# name is the text you will see in Discord for the field title
+# value must be a valid player statistics type:
+# (highest_kills, kills_per_minute, highest_deaths, deaths_per_minute, highest_kdr, kill_streak,
+#  death_streak, highest_team_kills, team_kill_streak, longest_life, or shortest_life)
+# Discord does not allow sending an empty name or value
+# but you can use a zero width space "\u200b" with inline = false to skip a line
+# inline = true will put fields on the same line until cleared with another field
+# that has inline = false set
+[[display.player_stats.embeds]]
+name = ":knife: Highest Kills"
+value = "highest_kills"
+inline = true
+[[display.player_stats.embeds]]
+name = ":knife: Kills/Minute"
+value = "kills_per_minute"
+inline = true
+[[display.player_stats.embeds]]
+name = "\u200b"
+value = "\u200b"
+inline = false
+
+[[display.player_stats.embeds]]
+name = ":skull: Highest Deaths"
+value = "highest_deaths"
+inline = true
+[[display.player_stats.embeds]]
+name = ":skull: Deaths/Minute"
+value = "deaths_per_minute"
+inline = true
+[[display.player_stats.embeds]]
+name = "\u200b"
+value = "\u200b"
+inline = false
+
+[[display.player_stats.embeds]]
+name = ":knife: Highest KDR"
+value = "highest_kdr"
+inline = true
+[[display.player_stats.embeds]]
+name = ":skull: Deaths/Minute"
+value = "deaths_per_minute"
+inline = true
+[[display.player_stats.embeds]]
+name = "\u200b"
+value = "\u200b"
+inline = false
+
+[[display.player_stats.embeds]]
+name = ":knife: Kill Streak"
+value = "kill_streak"
+inline = true
+[[display.player_stats.embeds]]
+name = ":skull: Death Streak"
+value = "death_streak"
+inline = true
+[[display.player_stats.embeds]]
+name = "\u200b"
+value = "\u200b"
+inline = false
+
+[[display.player_stats.embeds]]
+name = ":skull: Highest Team Kills"
+value = "highest_team_kills"
+inline = true
+[[display.player_stats.embeds]]
+name = ":no_entry: Team Kill Streak"
+value = "team_kill_streak"
+inline = true
+[[display.player_stats.embeds]]
+name = "\u200b"
+value = "\u200b"
+inline = false
+
+[[display.player_stats.embeds]]
+name = ":clock9: Longest Life"
+value = "longest_life"
+inline = true
+[[display.player_stats.embeds]]
+name = ":clock1: Shortest Life"
+value = "shortest_life"
+inline = true
+[[display.player_stats.embeds]]
+name = "\u200b"
+value = "\u200b"
+inline = false
+
+[display.player_stats.footer]
 # Display order is {footer_text} {last_refresh_text} {timestamp}
 # spacing, newlines, etc. are up to you
 

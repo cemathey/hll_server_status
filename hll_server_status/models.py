@@ -28,9 +28,6 @@ class ServerName(pydantic.BaseModel):
 class Map(pydantic.BaseModel):
     """Represents a RCON map name such as foy_offensive_ger"""
 
-    class Config:
-        underscore_attrs_are_private = True
-
     raw_name: str
 
     @pydantic.validator("raw_name")
@@ -90,6 +87,78 @@ class Slots(pydantic.BaseModel):
 
     player_count: int
     max_players: int
+
+
+class PlayerStatsCrconType(TypedDict):
+    player: str
+    steam_id_64: str
+
+    kills: int
+    kills_streak: int
+    deaths: int
+    deaths_without_kill_streak: int
+    teamkills: int
+    teamkills_streak: int
+    deaths_by_tk: int
+    deaths_by_tk_streak: int
+    longest_life_secs: int
+    shortest_life_secs: int
+
+    weapons: dict[str, int]
+    death_by_weapons: dict[str, int]
+    most_killed: dict[str, int]
+    death_by: dict[str, int]
+
+    combat: int
+    offense: int
+    defense: int
+    support: int
+
+    kills_per_minute: float
+    deaths_per_minute: float
+    kill_death_ratio: float
+
+
+class PlayerStats(pydantic.BaseModel):
+    player: str
+    steam_id_64: str
+
+    kills: int
+    kill_streak: int
+    deaths: int
+    death_streak: int
+    teamkills: int
+    teamkills_streak: int
+    deaths_by_tk: int
+    deaths_by_tk_streak: int
+    longest_life_secs: int
+    shortest_life_secs: int
+
+    kills_by_weapons: dict[str, int]
+    deaths_by_weapons: dict[str, int]
+    most_killed_players: dict[str, int]
+    death_by_players: dict[str, int]
+
+    combat: int
+    offense: int
+    defense: int
+    support: int
+
+    kills_per_minute_: float
+    deaths_per_minute_: float
+    kill_death_ratio_: float
+
+    @property
+    def kills_per_minute(self) -> float:
+        return round(self.kills_per_minute_, 1)
+
+    @property
+    def deaths_per_minute(self) -> float:
+        return round(self.deaths_per_minute_, 1)
+
+    @property
+    def kill_death_ratio(self) -> float:
+        return round(self.kill_death_ratio_, 1)
 
 
 class LoginParameters(pydantic.BaseModel):
@@ -244,7 +313,7 @@ class DisplayMapRotationColorConfig(pydantic.BaseModel):
     display_last_refreshed: bool
     last_refresh_text: str
 
-    @pydantic.validator("current_map_color", "next_map_color", "other_map_color")
+    @pydantic.field_validator("current_map_color", "next_map_color", "other_map_color")
     def must_be_valid_current_map_color(cls, v, field):
         if v not in constants.COLOR_TO_CODE_BLOCK.keys():
             raise ValueError(f"Invalid [display.map_rotation] {field}={v}")
@@ -271,10 +340,36 @@ class DisplayConfigMapRotation(pydantic.BaseModel):
     embed: DisplayMapRotationEmbedConfig
 
 
+class PlayerStatsEmbedConfig(pydantic.BaseModel):
+    name: str
+    value: str
+    inline: bool
+
+    @pydantic.validator("value")
+    def must_be_valid_embed(cls, v):
+        if v not in constants.PLAYER_STATS_EMBEDS:
+            raise ValueError(f"Invalid [[display.player_stats]] embed {v}")
+
+        return v
+
+
+class DisplayPlayerStatsConfig(pydantic.BaseModel):
+    enabled: bool
+    time_between_refreshes: pydantic.conint(ge=1)  # type: ignore
+    display_title: bool
+    title: str
+
+    num_to_display: pydantic.conint(ge=1, le=25)  # type: ignore
+    embeds: list[PlayerStatsEmbedConfig]
+
+    footer: DisplayFooterConfig
+
+
 class DisplayConfig(pydantic.BaseModel):
     header: DisplayHeaderConfig
     gamestate: DisplayGamestateConfig
     map_rotation: DisplayConfigMapRotation
+    player_stats: DisplayPlayerStatsConfig
 
 
 class Config(pydantic.BaseModel):

@@ -1,16 +1,16 @@
-import logging
-import sys
+from collections import defaultdict
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Callable
 
 import discord_webhook
 
 from hll_server_status import constants
-from hll_server_status.models import URL, AppStore, Config, Map
+from hll_server_status.constants import PlayerStatsEnum
+from hll_server_status.models import URL, AppStore, Config, Map, PlayerStats
 from hll_server_status.parsers import (
     parse_gamestate,
     parse_map_rotation,
+    parse_player_stats,
     parse_server_name,
     parse_slots,
     parse_vip_slots_num,
@@ -147,12 +147,12 @@ async def build_header(
 
     if url := config.display.header.quick_connect_url:
         header_embed.add_embed_field(
-            name=config.display.header.quick_connect_name, value=url, inline=False
+            name=config.display.header.quick_connect_name, value=str(url), inline=False
         )
 
     if url := config.display.header.battlemetrics_url:
         header_embed.add_embed_field(
-            name=config.display.header.battlemetrics_name, value=url, inline=False
+            name=config.display.header.battlemetrics_name, value=str(url), inline=False
         )
 
     if config.display.header.embeds:
@@ -193,7 +193,7 @@ async def build_gamestate(
         url = get_map_picture_url(config, gamestate["current_map"])
 
         if url:
-            gamestate_embed.set_image(url=url.url)
+            gamestate_embed.set_image(url=str(url.url))
 
     for option in config.display.gamestate.embeds:
         if option.value == "slots":
@@ -388,3 +388,80 @@ async def build_map_rotation_embed(
             map_rotation_embed.timestamp = datetime.now().isoformat()
 
     return None, map_rotation_embed
+
+
+def _get_stat(_stat: PlayerStats, stat_type: PlayerStatsEnum):
+    match stat_type:
+        case PlayerStatsEnum.highest_kills:
+            return _stat.kills
+        case PlayerStatsEnum.kills_per_minute:
+            return _stat.kills_per_minute
+        case PlayerStatsEnum.highest_deaths:
+            return _stat.deaths
+        case PlayerStatsEnum.deaths_per_minute:
+            return _stat.deaths_per_minute
+        case PlayerStatsEnum.highest_kdr:
+            return _stat.kill_death_ratio
+        case PlayerStatsEnum.kill_streak:
+            return _stat.kill_streak
+        case PlayerStatsEnum.death_streak:
+            return _stat.death_streak
+        case PlayerStatsEnum.highest_team_kills:
+            return _stat.teamkills
+        case PlayerStatsEnum.team_kill_streak:
+            return _stat.teamkills_streak
+        case PlayerStatsEnum.longest_life:
+            return _stat.longest_life_secs
+        case PlayerStatsEnum.shortest_life:
+            return _stat.shortest_life_secs
+
+
+async def build_player_stats_embed(
+    app_store: AppStore,
+    config: Config,
+    get_api_result: Callable,
+    endpoint: str = "get_live_game_stats",
+) -> tuple[str | None, discord_webhook.DiscordEmbed | None]:
+    """Build up the Discord.Embed for the player stats embed message"""
+    result = await get_api_result(app_store, config, endpoint=endpoint)
+    player_stats = parse_player_stats(result)
+
+    player_stats_embed = discord_webhook.DiscordEmbed()
+
+    if config.display.player_stats.display_title:
+        player_stats_embed.title = config.display.player_stats.title
+
+    reverse_sort = defaultdict(lambda: True)
+    reverse_sort[PlayerStatsEnum.shortest_life] = False
+
+    for embed in config.display.player_stats.embeds:
+        if embed.value == constants.EMPTY_EMBED:
+            player_stats_embed.add_embed_field(name=embed.name, value=embed.value)
+        else:
+            embed_type = PlayerStatsEnum(embed.value)
+            stats: list[PlayerStats] = sorted(
+                player_stats,
+                key=lambda _stat: _get_stat(_stat, embed_type),
+                reverse=reverse_sort[embed_type],
+            )[: config.display.player_stats.num_to_display]
+
+            stats_strings = [
+                f"[#{idx}][{stat.player}]: {_get_stat(stat, embed_type)}"
+                for idx, stat in enumerate(stats)
+            ]
+            player_stats_embed.add_embed_field(
+                name=embed.name,
+                value="```md\n{content}\n```".format(content="\n".join(stats_strings)),
+                inline=embed.inline,
+            )
+
+    footer_text = ""
+    if config.display.player_stats.footer.enabled:
+        footer_text = f"{config.display.player_stats.footer.footer_text}{config.display.player_stats.footer.last_refresh_text}"
+
+        if config.display.player_stats.footer.include_timestamp:
+            if footer_text:
+                player_stats_embed.set_footer(text=footer_text)
+            player_stats_embed.timestamp = datetime.now().isoformat()
+
+    return None, player_stats_embed
