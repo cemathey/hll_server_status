@@ -27,10 +27,12 @@ You don't need much, enough to run your distro and Docker, mine is running on an
 # Installing
 
 1. Clone the repository **or** download a release:
+2. Substitute <release version> with the desired release, such as `v1.4.0`
 
 ```sh
 git clone https://github.com/cemathey/hll_server_status.git
 cd hll_server_status
+git checkout <release version>
 ```
 
 ## Using Docker (recommended)
@@ -38,16 +40,16 @@ cd hll_server_status
 1. Build the `Docker` `image` which may take a few minutes:
 
 ```sh
-docker build --tag hll_server_status:latest .
+docker compose build
 ```
 
-2. Create the `Docker` container (can only be done once, and only needs to be done once unless you `docker rm` remove the container) or you want to change the logging level or something:
+2. Configure as many servers as you want, copy `default_config.toml` into the `config/` directory and fill it out (See the configuration section)
+
+3. Run it!
 
 ```sh
-docker run -d --env LOGURU_LEVEL=INFO --init --name hll_server_status -v $(pwd)/logs:/code/logs -v $(pwd)/config:/code/config -v $(pwd)/messages:/code/messages --restart unless-stopped hll_server_status
+docker compose up -d
 ```
-
-3. After building the image and creating the volume you can simply `docker start`, `docker stop`, or `docker restart` the container as necessary without the `docker run ...` command
 
 ## Using Python (Standalone, no Docker)
 
@@ -97,13 +99,13 @@ password = ""
 # Updating
 
 1. Refresh the `git` repository **or** download a new release, but see the release notes for any `default_config.toml` changes.
+2. Substitute <release version> with the desired release, such as `v1.4.0`
 
 ```sh
 git pull
-docker build --tag hll_server_status:latest .
-docker stop hll_server_status
-docker rm hll_server_status
-docker run -d --env LOGURU_LEVEL=INFO --init --name hll_server_status -v $(pwd)/logs:/code/logs -v $(pwd)/config:/code/config -v $(pwd)/messages:/code/messages --restart unless-stopped hll_server_status
+git checkout <release version>
+docker compose build
+docker compose up -d
 ```
 
 # FAQ
@@ -118,20 +120,21 @@ docker run -d --env LOGURU_LEVEL=INFO --init --name hll_server_status -v $(pwd)/
 
 3. Any plans to include player statistics/score?
 
-   No, Scorebot which is built into Community RCON already includes this.
+   ~~No, Scorebot which is built into Community RCON already includes this.~~
+   Just kidding, I added it.
 
-4. Any plans to include vote map info?
+5. Any plans to include vote map info?
    Maybe at some point.
 
-5. I can't get this working, will you help me?
+6. I can't get this working, will you help me?
 
    Not beyond this README, it's open source and if you can't figure out how to get it running contact me and I will [host it for you](https://crcon.cc/) for a nominal fee.
 
-6. Any plans to host pre-built Docker images like Community RCON or other projects do?
+7. Any plans to host pre-built Docker images like Community RCON or other projects do?
 
    No.
 
-7. I don't know how to use Docker, help!
+8. I don't know how to use Docker, help!
 
    Start Googling.
 
@@ -139,30 +142,14 @@ docker run -d --env LOGURU_LEVEL=INFO --init --name hll_server_status -v $(pwd)/
 
 - How do I change the logging level?
 
-  Stop and remove the container, and re-run it with a different log level (`DEUBG`, `INFO`, `ERROR`, etc).
+  Change `LOGURU_LEVEL` in your compose file to a different log level (`DEUBG`, `INFO`, `ERROR`, etc) and re-up your container
 
 ```shell
-docker stop hll_server_status
-docker rm hll_server_status
-docker run -d --env LOGURU_LEVEL=INFO --init --name hll_server_status -v $(pwd)/logs:/code/logs -v $(pwd)/config:/code/config -v $(pwd)/messages:/code/messages --restart unless-stopped hll_server_status
+docker compose up -d
 ```
-
 - My different sections appear in a different order than I want them to
 
 Just delete one message at a time that you consider out of order, the tool will recreate them if it can't find them to edit it. Because these messages are created asynchronously it's more trouble than it's worth to try to force them to update or be created in a specific order.
-
-- Container name already in use
-
-```sh
-docker: Error response from daemon: Conflict. The container name "/hll_server_status" is already in use by container
-```
-
-If you _truly_ want to remove the container, but you probably just want to `docker start hll_server_status`:
-
-```sh
-docker rm hll_server_status
-docker run -d --env LOGURU_LEVEL=INFO --init --name hll_server_status -v $(pwd)/logs:/code/logs -v $(pwd)/config:/code/config -v $(pwd)/messages:/code/messages --restart unless-stopped hll_server_status
-```
 
 # Miscellaneous
 
