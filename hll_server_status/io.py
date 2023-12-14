@@ -205,9 +205,10 @@ async def queue_webhook_update(
                     httpx.HTTPStatusError,
                 ) as e:
                     # TODO: better backoff system
+
                     backoff = next(back_offs)
                     app_store.logger.error(
-                        f"{e} in {job_key} sleeping for {backoff} seconds"
+                        f"{e.exceptions} in {job_key} sleeping for {backoff} seconds"
                     )
                     await trio.sleep(backoff)
 

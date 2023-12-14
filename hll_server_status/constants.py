@@ -216,7 +216,7 @@ LONG_HUMAN_MAP_NAMES: Final = {
 
 MAP_TO_PICTURE: Final = {
     "driel": "driel.webp",
-    "driel": "driel-night.webp",
+    "driel_night": "driel-night.webp",
     "elalamein": "elalamein.webp",
     "elalamein_night": "elalamein-night.webp",
     "carentan": "carentan.webp",
@@ -228,7 +228,7 @@ MAP_TO_PICTURE: Final = {
     "hurtgenforest": "hurtgen.webp",
     "hurtgenforest_night": "hurtgen-night.webp",
     "kharkov": "kharkov.webp",
-    "kharkov": "kharkov-night.webp",
+    "kharkov_night": "kharkov-night.webp",
     "kursk": "kursk.webp",
     "kursk_night": "kursk-night.webp",
     "omahabeach": "omaha.webp",
@@ -240,7 +240,7 @@ MAP_TO_PICTURE: Final = {
     "stalingrad": "stalingrad.webp",
     "stalingrad_night": "stalingrad-night.webp",
     "stmariedumont": "smdm.webp",
-    "stmariedumont": "smdm-night.webp",
+    "stmariedumont_night": "smdm-night.webp",
     "stmereeglise": "sme.webp",
     "stmereeglise_night": "sme-night.webp",
     "utahbeach": "utah.webp",
