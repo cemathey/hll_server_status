@@ -1,0 +1,17 @@
+version: "3.8"
+
+name: hll_server_status
+services:
+    hll_server_status:
+        environment:
+            - LOGURU_LEVEL=INFO
+        init: true
+        container_name: hll_server_status
+        volumes:
+            - ./logs:/code/logs
+            - ./config:/code/config
+            - ./messages:/code/messages
+        restart: unless-stopped
+        image: hll_server_status
+        build:
+          dockerfile: ./Dockerfile
