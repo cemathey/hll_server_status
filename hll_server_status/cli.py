@@ -2,6 +2,7 @@ import logging.config
 from copy import deepcopy
 from pathlib import Path
 
+import httpx
 import trio
 from loguru import logger
 
@@ -93,6 +94,15 @@ async def main():
                             f"{e} while loading config from {config_file_path}"
                         )
                         continue
+
+                    logger.info(f"Testing a connection to {config.api.base_server_url}")
+                    try:
+                        async with httpx.AsyncClient() as client:
+                            await client.get(str(config.api.base_server_url))
+                    except httpx.ConnectError as e:
+                        app_store.logger.error(
+                            f"Unable to connect to {config.api.base_server_url} for {config_file_path}"
+                        )
 
                     for section_key in toml_section_keys:
                         job_key = f"{app_store.server_identifier}:{section_key}"
