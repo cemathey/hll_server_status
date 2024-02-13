@@ -177,8 +177,6 @@ class DiscordConfig(pydantic.BaseModel):
 class APIConfig(pydantic.BaseModel):
     base_server_url: pydantic.HttpUrl
     api_key: str
-    # username: str
-    # password: str
 
 
 class DisplayEmbedConfig(pydantic.BaseModel):
@@ -216,8 +214,7 @@ class DisplayFooterConfig(pydantic.BaseModel):
 
 class DisplayHeaderConfig(pydantic.BaseModel):
     enabled: bool
-    # pylance complains about this even though it's valid with pydantic
-    time_between_refreshes: pydantic.conint(ge=1)  # type: ignore
+    time_between_refreshes: int = pydantic.Field(ge=1)
     server_name: str
     quick_connect_name: str
     quick_connect_url: pydantic.AnyUrl | None
@@ -235,7 +232,7 @@ class DisplayHeaderConfig(pydantic.BaseModel):
 
     @pydantic.validator("quick_connect_url", "battlemetrics_url", pre=True)
     def allow_empty_urls(cls, v):
-        # Can't set None/null values in TOML but we want to support empty URL strings
+        # Support empty URL strings
         if v == "":
             return None
         else:
@@ -244,8 +241,7 @@ class DisplayHeaderConfig(pydantic.BaseModel):
 
 class DisplayGamestateConfig(pydantic.BaseModel):
     enabled: bool
-    # pylance complains about this even though it's valid with pydantic
-    time_between_refreshes: pydantic.conint(ge=1)  # type: ignore
+    time_between_refreshes: int = pydantic.Field(ge=1)
     image: bool
     score_format: str
     score_format_ger_us: str | None
@@ -257,8 +253,7 @@ class DisplayGamestateConfig(pydantic.BaseModel):
 
 class DisplayMapRotationEmbedConfig(pydantic.BaseModel):
     enabled: bool
-    # pylance complains about this even though it's valid with pydantic
-    time_between_refreshes: pydantic.conint(ge=1)  # type: ignore
+    time_between_refreshes: int = pydantic.Field(ge=1)
     display_title: bool
     title: str
     current_map: str
@@ -284,11 +279,11 @@ class PlayerStatsEmbedConfig(pydantic.BaseModel):
 
 class DisplayPlayerStatsConfig(pydantic.BaseModel):
     enabled: bool
-    time_between_refreshes: pydantic.conint(ge=1)  # type: ignore
+    time_between_refreshes: int = pydantic.Field(ge=1)
     display_title: bool
     title: str
 
-    num_to_display: pydantic.conint(ge=1, le=25)  # type: ignore
+    num_to_display: int = pydantic.Field(ge=1, le=25)
     embeds: list[PlayerStatsEmbedConfig]
 
     footer: DisplayFooterConfig

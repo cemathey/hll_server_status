@@ -21,7 +21,7 @@ display:
     enabled: true
     # In seconds, there is a lower limit on how fast you can refresh
     # as determined by the delay time between calling your CRCON and then sending the message to Discord
-    time_between_refreshes: 60
+    time_between_refreshes: 30
     # Valid options are: "name" or "short_name", will display as it is set in your CRCON configuration
     # name is as you see it in the server browser, short_name is defined in CRCON
     server_name: "name"
@@ -130,7 +130,7 @@ display:
     enabled: true
     # In seconds, there is a lower limit on how fast you can refresh
     # as determined by the delay time between calling your CRCON and then sending the message to Discord
-    time_between_refreshes: 5
+    time_between_refreshes: 30
     display_title: true
     title: "Map Rotation"
     # Map name is {0} and index is {1}, you can use any Discord recognized mark down for bold/italic/etc.

@@ -12,7 +12,6 @@ from hll_server_status.io import (
     queue_webhook_update,
     send_queued_webhook_update,
 )
-from hll_server_status.models import enter_session, get_set_wh_row
 from hll_server_status.types import AppStore
 
 # Disable logging so discord_webhook doesn't log for us
@@ -59,11 +58,11 @@ async def main():
             f"No config files found, add one or more to {constants.LOG_DIR} "
         )
 
-    toml_section_keys = (
-        "header",
-        "gamestate",
-        "map_rotation",
+    section_keys = (
         "player_stats",
+        "map_rotation",
+        "gamestate",
+        "header",
     )
     # Use a 0 size buffer so we never queue another attempt until the previous one has been
     # received since these are all snap shots and producing faster than we can consume is
@@ -71,13 +70,15 @@ async def main():
     send_channel, receive_channel = trio.open_memory_channel(0)
     async with trio.open_nursery() as nursery:
         async with send_channel, receive_channel:
-            for app_store, config_file_path in config_files:
+            for idx, (app_store, config_file_path) in enumerate(config_files):
                 default_logger.info(
                     f"Starting {config_file_path} check log files for further output"
                 )
                 print(f"Starting {config_file_path} check log files for further output")
 
-                app_store.logger.info(f"Reading config file for {config_file_path}")
+                app_store.logger.info(
+                    f"Reading config file for {idx=} {config_file_path}"
+                )
                 try:
                     config = load_config(app_store, config_file_path)
                 except (KeyError, ValueError) as e:
@@ -88,7 +89,7 @@ async def main():
 
                 app_store.client = httpx.AsyncClient(
                     headers={
-                        "Authorization": constants.API_KEY_FORMAT.format(
+                        constants.AUTH_HEADER: constants.API_KEY_FORMAT.format(
                             api_key=config.api.api_key
                         )
                     }
@@ -102,7 +103,7 @@ async def main():
                         f"Unable to connect to {config.api.base_server_url} for {config_file_path}"
                     )
 
-                for section_key in toml_section_keys:
+                for section_key in section_keys:
                     job_key = f"{app_store.server_identifier}:{section_key}"
 
                     # Create a unique queue for each section in each config file so they can all update
@@ -120,7 +121,7 @@ async def main():
                         section_key,
                     )
                     nursery.start_soon(
-                        send_queued_webhook_update, receive_channel_clone, job_key
+                        send_queued_webhook_update, receive_channel_clone
                     )
 
 

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 import discord_webhook
@@ -172,7 +172,7 @@ async def build_header(
     if config.display.header.footer.include_timestamp:
         if footer_text:
             header_embed.set_footer(text=footer_text)
-        header_embed.timestamp = datetime.now().isoformat()
+        header_embed.timestamp = datetime.now(tz=timezone.utc).isoformat()
 
     return None, header_embed
 
@@ -251,7 +251,7 @@ async def build_gamestate(
         if config.display.gamestate.footer.include_timestamp:
             if footer_text:
                 gamestate_embed.set_footer(text=footer_text)
-            gamestate_embed.timestamp = datetime.now().isoformat()
+            gamestate_embed.timestamp = datetime.now(tz=timezone.utc).isoformat()
 
     return None, gamestate_embed
 
@@ -311,7 +311,7 @@ async def build_map_rotation(
         if config.display.map_rotation.footer.include_timestamp:
             if footer_text:
                 map_rotation_embed.set_footer(text=footer_text)
-            map_rotation_embed.timestamp = datetime.now().isoformat()
+            map_rotation_embed.timestamp = datetime.now(tz=timezone.utc).isoformat()
 
     return None, map_rotation_embed
 
@@ -388,6 +388,6 @@ async def build_player_stats_embed(
         if config.display.player_stats.footer.include_timestamp:
             if footer_text:
                 player_stats_embed.set_footer(text=footer_text)
-            player_stats_embed.timestamp = datetime.now().isoformat()
+            player_stats_embed.timestamp = datetime.now(tz=timezone.utc).isoformat()
 
     return None, player_stats_embed
