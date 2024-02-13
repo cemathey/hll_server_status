@@ -1,7 +1,6 @@
 import json
 import time
 import tomllib
-from copy import copy
 from functools import wraps
 from itertools import cycle
 from pathlib import Path
@@ -10,10 +9,7 @@ from typing import Any, Callable
 import discord_webhook
 import httpx
 import pydantic
-import tomlkit
-import tomlkit.exceptions
 import trio
-from loguru import logger
 
 from hll_server_status import constants, models
 from hll_server_status.exceptions import RateLimited
@@ -24,7 +20,6 @@ from hll_server_status.types import (
     Config,
     DiscordConfig,
     DisplayConfig,
-    LoginParameters,
     SettingsConfig,
 )
 from hll_server_status.utils import (
@@ -286,35 +281,6 @@ def load_config(app_store: AppStore, file_path: Path) -> Config:
     return config
 
 
-def with_login(func: Callable):
-    """Log in to the CRCON API and save the sessionid cookie if not logged in"""
-
-    @wraps(func)
-    async def inner(
-        app_store: AppStore,
-        config: Config,
-        *args,
-        **kwargs,
-    ):
-        username = config.api.username
-        password = config.api.password
-
-        # Don't log in if we're already trying to log in from another task for this config file
-        # This does not prevent multiple simultaneous log ins to the same CRCON server
-        # if multiple config files are using it, but this is okay because they might be using different
-        # credentials, it's probably not worth trying to prevent
-        if not app_store.cookies.get("sessionid", None) and not app_store.logging_in:
-            app_store.logging_in = True
-            app_store.cookies["sessionid"] = login(config, username, password)
-            app_store.logger.debug(
-                f"Logged in with session ID: {app_store.cookies['sessionid']}"
-            )
-
-        return await func(app_store, config, *args, **kwargs)
-
-    return inner
-
-
 def with_retry(func: Callable, retries=10, delay_between_retries=1):
     """Wrapper for functions that call the CRCON API to retry failed API calls"""
 
@@ -340,43 +306,7 @@ def with_retry(func: Callable, retries=10, delay_between_retries=1):
     return inner
 
 
-def login(
-    config: Config,
-    username: str,
-    password: str,
-    endpoint: str = "login",
-    api_prefix=constants.API_PREFIX,
-) -> str:
-    """Log into CRCON and return the sessionid cookie for future requests"""
-    if not username or not password:
-        raise ValueError("Username or password not provided.")
-
-    params = LoginParameters(username=username, password=password)
-    cookie: str | None = None
-    url: str = str(config.api.base_server_url) + api_prefix + endpoint
-
-    try:
-        # Use a blocking request since nothing else can proceed anyway until we log in
-        response = httpx.post(url, json=params.as_dict())
-        if response.status_code != 200:
-            response.raise_for_status()
-
-        cookie = response.cookies.get(constants.SESSION_ID_COOKIE)
-    except httpx.ConnectError as e:
-        raise httpx.ConnectError(f"Unable to connect to URL {url}") from e
-
-    # Shouldn't get here, should either get an HTTP 200
-    # or handle a httpx.ConnectError
-    if cookie is None:
-        raise ValueError(
-            "Did not receive a valid session ID cookie after logging in to CRCON"
-        )
-
-    return cookie
-
-
 @with_retry
-@with_login
 async def get_api_result(
     app_store: AppStore,
     config: Config,
@@ -391,17 +321,13 @@ async def get_api_result(
     if api_prefix is None:
         api_prefix = constants.API_PREFIX
 
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            url=str(base_url) + api_prefix + endpoint, cookies=app_store.cookies
-        )
+    if app_store.client is None:
+        raise ValueError(f"{app_store.client=}")
+
+    response = await app_store.client.get(url=str(base_url) + api_prefix + endpoint)
 
     if response.status_code == 401:
-        app_store.logger.error(
-            "HTTP 401 (Unathorized) error, attempting to log in again"
-        )
-        app_store.cookies.pop("sessionid", None)
-        app_store.logging_in = False
+        app_store.logger.error("HTTP 401 (Unathorized) error, check your API key")
     elif response.status_code != 200:
         app_store.logger.error(
             f"HTTP {response.status_code} for {endpoint=} for {app_store.server_identifier} {response.content=} {response.text=}"

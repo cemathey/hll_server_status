@@ -4,8 +4,8 @@ from typing import Final
 EMPTY_EMBED: Final = "\u200B"
 NONE_MESSAGE_ID: Final = 0
 
-SESSION_ID_COOKIE: Final = "sessionid"
-
+API_KEY_FORMAT = "Bearer: {api_key}"
+AUTH_HEADER = "Authorization"
 
 ROOT_LOGGER_NAME = "hll_server_status"
 CONFIG_DIR: Final = "config/"

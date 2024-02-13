@@ -49,8 +49,7 @@ async def main():
             retention=constants.LOG_RETENTION_DAYS,
         )
         app_store = AppStore(
-            server_identifier=config_file_path.stem,
-            logger=_logger,
+            server_identifier=config_file_path.stem, logger=_logger, client=None
         )
 
         config_files.append((app_store, config_file_path))
@@ -87,10 +86,17 @@ async def main():
                     )
                     continue
 
+                app_store.client = httpx.AsyncClient(
+                    headers={
+                        "Authorization": constants.API_KEY_FORMAT.format(
+                            api_key=config.api.api_key
+                        )
+                    }
+                )
+
                 logger.info(f"Testing a connection to {config.api.base_server_url}")
                 try:
-                    async with httpx.AsyncClient() as client:
-                        await client.get(str(config.api.base_server_url))
+                    await app_store.client.get(str(config.api.base_server_url))
                 except httpx.ConnectError as e:
                     app_store.logger.error(
                         f"Unable to connect to {config.api.base_server_url} for {config_file_path}"

@@ -31,9 +31,7 @@ webhook_url = ""
 # The URL or IP address of your CRCON, trailing / optional
 # for instance http://<ip>:<port>/ or https://yoururl.whatever/
 base_server_url = ""
-# Your CRCON username and password
-username = ""
-password = ""
+api_key = ""
 
 
 [display]
