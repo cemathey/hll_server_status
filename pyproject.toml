@@ -10,7 +10,6 @@ packages = [{ include = "hll_server_status" }]
 python = "^3.11"
 pydantic = "2.6.1"
 python-dateutil = "^2.8.2"
-tomlkit = "^0.12.3"
 trio = "^0.24.0"
 httpx = "^0.26.0"
 loguru = "^0.7.2"
