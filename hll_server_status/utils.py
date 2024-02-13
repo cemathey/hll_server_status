@@ -167,7 +167,7 @@ async def build_header(
 
     footer_text = ""
     if config.display.header.footer.enabled:
-        footer_text = f"{config.display.header.footer.footer_text}{config.display.header.footer.last_refresh_text}"
+        footer_text = f"{config.display.header.footer.text}{config.display.header.footer.last_refresh_text}"
 
     if config.display.header.footer.include_timestamp:
         if footer_text:
@@ -246,7 +246,7 @@ async def build_gamestate(
         )
 
     if config.display.gamestate.footer.enabled:
-        footer_text = f"{config.display.gamestate.footer.footer_text}{config.display.gamestate.footer.last_refresh_text}"
+        footer_text = f"{config.display.gamestate.footer.text}{config.display.gamestate.footer.last_refresh_text}"
 
         if config.display.gamestate.footer.include_timestamp:
             if footer_text:
@@ -306,7 +306,7 @@ async def build_map_rotation(
 
     footer_text = ""
     if config.display.map_rotation.footer.enabled:
-        footer_text = f"{config.display.map_rotation.footer.footer_text}{config.display.map_rotation.footer.last_refresh_text}"
+        footer_text = f"{config.display.map_rotation.footer.text}{config.display.map_rotation.footer.last_refresh_text}"
 
         if config.display.map_rotation.footer.include_timestamp:
             if footer_text:
@@ -383,7 +383,7 @@ async def build_player_stats_embed(
 
     footer_text = ""
     if config.display.player_stats.footer.enabled:
-        footer_text = f"{config.display.player_stats.footer.footer_text}{config.display.player_stats.footer.last_refresh_text}"
+        footer_text = f"{config.display.player_stats.footer.text}{config.display.player_stats.footer.last_refresh_text}"
 
         if config.display.player_stats.footer.include_timestamp:
             if footer_text:
