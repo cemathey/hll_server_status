@@ -70,14 +70,6 @@ PLAYER_STATS_EMBEDS: Final = (
     EMPTY_EMBED,
 )
 
-COLOR_TO_CODE_BLOCK: Final = {
-    "auto": "",
-    "cyan": "yaml",  # dsconfig
-    "green": "less",  # less
-    "orange": "ebnf",  # fix ldif mathematica
-    "gray": "bf",  # flix
-}
-
 BETWEEN_MATCHES_MAP_NAME: Final = "Untitled"
 MAP_RESTART_SUFFIX: Final = "_RESTART"
 
