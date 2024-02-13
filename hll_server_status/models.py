@@ -4,7 +4,6 @@ from typing import Generator
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
-# engine = create_engine("sqlite://")
 engine = create_engine("sqlite:///file:messages/db.sqlite?mode=rwc&uri=true", echo=True)
 
 
@@ -89,13 +88,6 @@ def save_message_ids(
     with enter_session() as session:
         wh = get_set_wh_row(session=session, webhook_url=webhook_url)
         if wh is None:
-            # wh = Webhook(
-            #     url=webhook_url,
-            #     header=header,
-            #     gamestate=gamestate,
-            #     map_rotation=map_rotation,
-            #     player_stats=player_stats,
-            # )
             wh = Webhook()
         wh.header = header
         wh.gamestate = gamestate

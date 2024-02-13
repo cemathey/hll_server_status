@@ -99,9 +99,10 @@ async def queue_webhook_update(
     ) = get_producer_config_values(config, key)
 
     app_store.logger.debug(
-        f"{enabled=} key={key} {job_key=} {content_embed_creator_func=}"
+        f"{enabled=} {key=} {job_key=} {content_embed_creator_func=}"
     )
 
+    first_run = True
     async with send_channel:
         while True:
             start_time_ns = time.perf_counter_ns()
@@ -114,8 +115,9 @@ async def queue_webhook_update(
             # Periodically re-read the config file for changes without need to restart
             # the entire service
             # TODO: watch the file for changes rather than polling?
-            if refresh_config:
+            if refresh_config and not first_run:
                 refresh_config = False
+                first_run = False
                 try:
                     config_update_timestamp_ns = time.perf_counter_ns()
                     app_store.logger.info(f"Reading config file for {config_file_path}")
@@ -198,7 +200,7 @@ async def queue_webhook_update(
                     await trio.sleep(backoff)
 
 
-async def send_queued_webhook_update(receive_channel, job_key: str):
+async def send_queued_webhook_update(receive_channel):
     """Retrieve a queued update for this sections webhook, send it to Discord and save the message ID"""
     app_store: AppStore
     config: Config
@@ -226,7 +228,7 @@ async def send_queued_webhook_update(receive_channel, job_key: str):
             content=content,
             embed=embed,
         )
-        app_store.logger.debug(f"Received {message_id=} from send_for_webhook")
+        app_store.logger.debug(f"Received {message_id=} from send_for_webhook {key=}")
 
         if message_id is None:
             message_id = constants.NONE_MESSAGE_ID
@@ -242,10 +244,6 @@ def load_config(app_store: AppStore, file_path: Path) -> Config:
 
     with open(file_path, mode="rb") as fp:
         raw_config = yaml.safe_load(fp)
-
-    # from pprint import pprint
-
-    # pprint(raw_config)
 
     key = "settings"
     try:
@@ -372,10 +370,10 @@ async def send_for_webhook(
         url=str(webhook_url), with_retry=False, id=str(message_id)
     )
 
-    app_store.logger.warning(f"Created webhook id={webhook.id} {type(webhook.id)=}")
+    app_store.logger.debug(f"Created webhook id={webhook.id} for {key=}")
 
     if message_id:
-        log_message = f"Editing {key} message ID={message_id}"
+        log_message = f"Editing {key} {message_id=}"
         webhook.content = content
         if embed and embed not in webhook.embeds:
             webhook.add_embed(embed)
@@ -386,12 +384,12 @@ async def send_for_webhook(
             webhook.add_embed(embed)
 
     try:
-        app_store.logger.warning(f"send_for_webhook {message_id=}")
+        app_store.logger.debug(f"send_for_webhook {message_id=}")
         if message_id:
             response = await webhook.edit()
         else:
             response = await webhook.execute()
-        app_store.logger.warning(f"executed webhook={webhook.id}")
+        app_store.logger.debug(f"executed webhook={webhook.id}")
         if webhook.id:
             message_id = int(webhook.id)
         if response.status_code == 404:
@@ -404,7 +402,7 @@ async def send_for_webhook(
         app_store.logger.info(log_message)
     except RateLimited as e:
         app_store.logger.warning(
-            f"This message was rate limited by Discord retrying after {e.retry_after:.2f} seconds"
+            f"{message_id=} was rate limited by Discord retrying after {e.retry_after:.2f} seconds"
         )
         await trio.sleep(e.retry_after)
     except httpx.ConnectError:
@@ -415,4 +413,5 @@ async def send_for_webhook(
             f"Tried to edit non-existent {key} message ID={message_id}"
         )
         message_id = None
+
     return message_id

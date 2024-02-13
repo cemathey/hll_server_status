@@ -12,11 +12,12 @@ from hll_server_status.types import (
     Slots,
 )
 
+TIME_REMAINING_PATTERN = re.compile(r"(\d{1}):(\d{2}):(\d{2})")
+
 
 def parse_gamestate(app_store: AppStore, result: dict[str, Any]) -> GameState:
     """Parse and validate the result of /api/get_gamestate"""
-    time_remaining_pattern = re.compile(r"(\d{1}):(\d{2}):(\d{2})")
-    matched = re.match(time_remaining_pattern, result["raw_time_remaining"])
+    matched = re.match(TIME_REMAINING_PATTERN, result["raw_time_remaining"])
     if not matched:
         raise ValueError("Received an invalid response from your CRCON Server")
     hours, minutes, seconds = matched.groups()

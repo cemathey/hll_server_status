@@ -4,10 +4,10 @@ from typing import Final
 EMPTY_EMBED: Final = "\u200B"
 NONE_MESSAGE_ID: Final = 0
 
-API_KEY_FORMAT = "Bearer: {api_key}"
-AUTH_HEADER = "Authorization"
+API_KEY_FORMAT: Final = "Bearer: {api_key}"
+AUTH_HEADER: Final = "Authorization"
 
-ROOT_LOGGER_NAME = "hll_server_status"
+ROOT_LOGGER_NAME: Final = "hll_server_status"
 CONFIG_DIR: Final = "config/"
 MESSAGES_DIR: Final = "messages/"
 LOG_DIR: Final = "logs/"
@@ -301,8 +301,6 @@ UK_MAPS: Final = (
     "elalamein_warfare_night",
     "elalamein_warfare",
 )
-
-# TODO: Update with British maps on U14 release
 
 SCORE_EMBEDS: Final = (
     "TOP_KILLERS",
