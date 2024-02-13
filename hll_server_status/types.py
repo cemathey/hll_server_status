@@ -1,14 +1,12 @@
-import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import timedelta
 from itertools import zip_longest
-from typing import NotRequired, TypedDict
+from typing import TypedDict
 
 import httpx
 import loguru
 import pydantic
-import tomlkit
 
 from hll_server_status import constants
 
@@ -156,35 +154,11 @@ class PlayerStats(pydantic.BaseModel):
         return round(self.kill_death_ratio_, 1)
 
 
-class LoginParameters(pydantic.BaseModel):
-    """Body for api/login"""
-
-    username: str
-    password: str
-
-    def as_dict(self) -> dict[str, str]:
-        return {"username": self.username, "password": self.password}
-
-    def as_json(self):
-        return json.dumps(self.as_dict())
-
-
-class Cookies(TypedDict):
-    sessionid: NotRequired[httpx.Cookies]
-
-
-def default_cookies() -> Cookies:
-    return {}
-
-
 @dataclass
 class AppStore:
     server_identifier: str
     logger: "loguru.Logger"
-    # last_saved_message_ids: tomlkit.TOMLDocument | None
-    logging_in: bool = field(default_factory=lambda: False)
-    # message_ids: tomlkit.TOMLDocument = field(default_factory=tomlkit.TOMLDocument)
-    cookies: dict[str, str] = field(default_factory=dict)
+    client: httpx.AsyncClient | None
 
 
 class URL(pydantic.BaseModel):
@@ -203,8 +177,9 @@ class DiscordConfig(pydantic.BaseModel):
 
 class APIConfig(pydantic.BaseModel):
     base_server_url: pydantic.HttpUrl
-    username: str
-    password: str
+    api_key: str
+    # username: str
+    # password: str
 
 
 class DisplayEmbedConfig(pydantic.BaseModel):
