@@ -20,4 +20,4 @@ then
     mkdir ./messages
 fi
 
-PYTHONPATH=. poetry run python /code/hll_server_status/cli.py
+PYTHONPATH=. poetry run python -m hll_server_status.cli

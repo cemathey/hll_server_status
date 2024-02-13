@@ -12,24 +12,6 @@ time_between_config_file_reads = 300
 # seconds to take effect
 disabled_section_sleep_timer = 60
 
-
-################################
-#                              #
-#       Message ID Files       #
-#                              #
-################################
-[output]
-# Directory/filename to save existing Discord message IDs
-# You can delete these files (new messages will be created)
-# or hand edit them as needed to fix problems
-# If the file doesn't exist or contains message IDs
-# of messages that don't exist in the webhook channel
-# the tool will create new messages
-# Leave blank to use the defaults (recommended)
-message_id_directory = ""
-message_id_filename = ""
-
-
 ################################
 #                              #
 #       Discord Webhook        #
