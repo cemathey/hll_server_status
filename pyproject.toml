@@ -16,6 +16,7 @@ httpx = "^0.26.0"
 loguru = "^0.7.2"
 discord-webhook = { git = "https://github.com/cemathey/python-discord-webhook.git", branch = "feat/anyio" }
 anyio = "^3.7.1"
+sqlalchemy = "^2.0.27"
 
 [tool.poetry.group.dev.dependencies]
 loguru-mypy = "^0.0.4"

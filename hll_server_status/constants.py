@@ -1,8 +1,6 @@
 import enum
 from typing import Final
 
-from hll_server_status.models import MessageIDFormat
-
 EMPTY_EMBED: Final = "\u200B"
 NONE_MESSAGE_ID: Final = 0
 
@@ -28,10 +26,6 @@ MAP_PICTURES: Final = "maps/"
 
 NS_TO_SECONDS_FACTOR: Final = 1_000_000_000
 
-MESSAGE_ID_FORMAT: Final[MessageIDFormat] = {
-    "table_name": "message_ids",
-    "fields": ["header", "gamestate", "map_rotation_color", "map_rotation_embed"],
-}
 
 DISPLAY_NAMES: Final = ("name", "short_name")
 DISPLAY_EMBEDS: Final = ("reserved_vip_slots", "current_vips")

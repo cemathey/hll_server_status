@@ -6,7 +6,6 @@ import discord_webhook
 
 from hll_server_status import constants
 from hll_server_status.constants import PlayerStatsEnum
-from hll_server_status.models import URL, AppStore, Config, Map, PlayerStats
 from hll_server_status.parsers import (
     parse_gamestate,
     parse_map_rotation,
@@ -16,6 +15,7 @@ from hll_server_status.parsers import (
     parse_vip_slots_num,
     parse_vips_count,
 )
+from hll_server_status.types import URL, AppStore, Config, Map, PlayerStats
 
 
 def guess_current_map_rotation_positions(

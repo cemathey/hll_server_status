@@ -15,17 +15,16 @@ import tomlkit.exceptions
 import trio
 from loguru import logger
 
-from hll_server_status import constants
+from hll_server_status import constants, models
 from hll_server_status.exceptions import RateLimited
-from hll_server_status.models import (
+from hll_server_status.models import enter_session, get_set_wh_row
+from hll_server_status.types import (
     APIConfig,
     AppStore,
     Config,
     DiscordConfig,
     DisplayConfig,
     LoginParameters,
-    MessageIDFormat,
-    OutputConfig,
     SettingsConfig,
 )
 from hll_server_status.utils import (
@@ -71,7 +70,7 @@ def get_producer_config_values(config: Config, key: str) -> tuple[bool, int, Cal
             config.display.map_rotation.color.time_between_refreshes,
             build_map_rotation_color,
         ),
-        "map_rotation_embed": (
+        "map_rotation": (
             config.display.map_rotation.embed.enabled,
             config.display.map_rotation.embed.time_between_refreshes,
             build_map_rotation_embed,
@@ -91,8 +90,7 @@ async def queue_webhook_update(
     config: Config,
     config_file_path: Path,
     app_store: AppStore,
-    table_name: str,
-    toml_section_key: str,
+    key: str,
 ) -> None:
     """Queue an update for this sections webhook and then sleep until next update time"""
     refresh_config = False
@@ -102,7 +100,6 @@ async def queue_webhook_update(
 
     # enabled = True
     config_update_timestamp_ns = 0
-
     webhook_url = config.discord.webhook_url
 
     # Get the information for this specific section
@@ -110,10 +107,10 @@ async def queue_webhook_update(
         enabled,
         refresh_delay,
         content_embed_creator_func,
-    ) = get_producer_config_values(config, toml_section_key)
+    ) = get_producer_config_values(config, key)
 
     app_store.logger.debug(
-        f"{enabled=} key={toml_section_key} {job_key=} {content_embed_creator_func=}"
+        f"{enabled=} key={key} {job_key=} {content_embed_creator_func=}"
     )
 
     async with send_channel:
@@ -134,7 +131,7 @@ async def queue_webhook_update(
                     config_update_timestamp_ns = time.perf_counter_ns()
                     app_store.logger.info(f"Reading config file for {config_file_path}")
                     app_store.logger.debug(
-                        f"{enabled=} key={toml_section_key} {job_key=} {content_embed_creator_func=}"
+                        f"{enabled=} key={key} {job_key=} {content_embed_creator_func=}"
                     )
                     try:
                         config = load_config(app_store, config_file_path)
@@ -148,7 +145,7 @@ async def queue_webhook_update(
                         enabled,
                         refresh_delay,
                         content_embed_creator_func,
-                    ) = get_producer_config_values(config, toml_section_key)
+                    ) = get_producer_config_values(config, key)
 
                 except Exception as e:
                     app_store.logger.exception(
@@ -168,12 +165,12 @@ async def queue_webhook_update(
                 )
                 await trio.sleep(time_to_sleep)
             else:
+                with enter_session() as session:
+                    message_ids = get_set_wh_row(
+                        session=session, webhook_url=str(webhook_url)
+                    )
+                    message_id = message_ids[key]
                 try:
-                    try:
-                        # pylance complains about this even though it's valid with tomlkit
-                        message_id = app_store.message_ids[table_name][toml_section_key]  # type: ignore
-                    except tomlkit.exceptions.NonExistentKey:
-                        message_id = None
                     content, embed = await content_embed_creator_func(
                         app_store, config, get_api_result
                     )
@@ -182,8 +179,7 @@ async def queue_webhook_update(
                             app_store,
                             config,
                             webhook_url,
-                            table_name,
-                            toml_section_key,
+                            key,
                             message_id,
                             content,
                             embed,
@@ -218,46 +214,37 @@ async def send_queued_webhook_update(receive_channel, job_key: str):
     app_store: AppStore
     config: Config
     webhook_url: pydantic.HttpUrl
-    table_name: str
     key: str
     message_id: int | None
     content: str | None = None
     embed: discord_webhook.DiscordEmbed | None = None
 
-    async for app_store, config, webhook_url, table_name, key, message_id, content, embed in receive_channel:
-        try:
-            message_id = await send_for_webhook(
-                app_store,
-                config,
-                key,
-                webhook_url,
-                message_id,
-                content=content,
-                embed=embed,
-            )
-            app_store.logger.debug(f"Received {message_id=} from send_for_webhook")
-            await save_message_id(
-                app_store, table_name=table_name, key=key, message_id=message_id
-            )
-            # Reduce disk usage by only persisting message IDs if they've changed or haven't been
-            # saved yet
-            if (
-                not app_store.last_saved_message_ids
-                or app_store.message_ids != app_store.last_saved_message_ids
-            ):
-                await save_message_ids_to_disk(app_store, config)
-                app_store.last_saved_message_ids = copy(app_store.message_ids)
-        except (Exception, KeyboardInterrupt) as e:
-            # try to save the current message IDs if there's an exception to avoid orphaned
-            # messages
-            app_store.logger.warning(
-                f"Saving message IDs after crashing exception {table_name=} {key=} {message_id=}"
-            )
-            await save_message_id(
-                app_store, table_name=table_name, key=key, message_id=message_id
-            )
-            await save_message_ids_to_disk(app_store, config)
-            raise e
+    async for (
+        app_store,
+        config,
+        webhook_url,
+        key,
+        message_id,
+        content,
+        embed,
+    ) in receive_channel:
+        message_id = await send_for_webhook(
+            app_store,
+            config,
+            key,
+            webhook_url,
+            message_id,
+            content=content,
+            embed=embed,
+        )
+        app_store.logger.debug(f"Received {message_id=} from send_for_webhook")
+
+        if message_id is None:
+            message_id = constants.NONE_MESSAGE_ID
+
+        models.save_message_ids_by_key(
+            webhook_url=str(webhook_url), key=key, value=message_id
+        )
 
 
 def load_config(app_store: AppStore, file_path: Path) -> Config:
@@ -270,13 +257,6 @@ def load_config(app_store: AppStore, file_path: Path) -> Config:
     key = "settings"
     try:
         settings_config = SettingsConfig(**raw_config[key])
-    except pydantic.ValidationError:
-        app_store.logger.error(f"validating {file_path}, check your [{key}] section")
-        raise
-
-    key = "output"
-    try:
-        output_config = OutputConfig(**raw_config[key])
     except pydantic.ValidationError:
         app_store.logger.error(f"validating {file_path}, check your [{key}] section")
         raise
@@ -304,129 +284,12 @@ def load_config(app_store: AppStore, file_path: Path) -> Config:
 
     config = Config(
         settings=settings_config,
-        output=output_config,
         discord=discord_config,
         api=api_config,
         display=display_config,
     )
 
     return config
-
-
-async def save_message_id(
-    app_store: AppStore, table_name: str, key: str, message_id: int | None
-) -> None:
-    """Update a webhook message ID in the app_store"""
-    if message_id is None:
-        message_id = constants.NONE_MESSAGE_ID
-
-    app_store.logger.debug(f"save_message_id({table_name=} {key=} {message_id=})")
-    # pylance complains about this even though it's valid with tomlkit
-    app_store.message_ids[table_name][key] = message_id  # type: ignore
-
-
-async def save_message_ids_to_disk(
-    app_store: AppStore,
-    config: Config | None,
-    path: str | None = None,
-    filename: str | None = None,
-) -> None:
-    """Save the current message IDs for a specific config to disk"""
-    if config and config.output.message_id_directory:
-        path = config.output.message_id_directory
-
-    if config and config.output.message_id_filename:
-        filename = config.output.message_id_filename
-
-    if path is None:
-        path = constants.MESSAGES_DIR
-
-    if filename is None:
-        filename = constants.MESSAGE_FILE_FORMAT.format(key=app_store.server_identifier)
-
-    file = Path(path, filename)
-
-    app_store.logger.info(f"Saving message IDs to {file}")
-    app_store.logger.debug(f"{app_store.message_ids=}")
-    app_store.logger.debug(f"tomlkit.dumps={tomlkit.dumps(app_store.message_ids)}")
-    async with await trio.open_file(file, mode="w") as fp:
-        toml_string = tomlkit.dumps(app_store.message_ids)
-        await fp.write(toml_string)
-
-
-def validate_message_ids_format(
-    app_store: AppStore,
-    message_ids: tomlkit.TOMLDocument | None,
-    format: MessageIDFormat = constants.MESSAGE_ID_FORMAT,
-    default_value: int = constants.NONE_MESSAGE_ID,
-) -> tomlkit.TOMLDocument:
-    """Validate the structure of saved message IDs and create defaults for missing keys"""
-    if message_ids is None:
-        app_store.logger.warning(
-            f"{app_store.server_identifier} No message IDs passed, creating a new TOML document"
-        )
-        message_ids = tomlkit.document()
-
-    table_name = format["table_name"]
-    table = message_ids.get(table_name)
-    if table is None:
-        app_store.logger.warning(
-            f"{app_store.server_identifier} {table_name=} missing, creating a new table"
-        )
-        table = tomlkit.table()
-        message_ids.add(table_name, table)
-
-    for field in format["fields"]:
-        if field not in table:
-            app_store.logger.warning(
-                f"{app_store.server_identifier} Creating missing {field=} with {default_value=}"
-            )
-
-            # pylance complains about this even though it's valid with tomlkit
-            message_ids[table_name].add(field, default_value)  # type: ignore
-        if field not in constants.MESSAGE_ID_FORMAT["fields"]:
-            app_store.logger.error(
-                f"{app_store.server_identifier} Unknown field {field} in saved message IDs"
-            )
-
-    return message_ids
-
-
-async def load_message_ids(app_store: AppStore) -> None:
-    """Load and validate Discord message IDs from disk if not already saved"""
-    if not (message_ids := app_store.message_ids):
-        try:
-            message_ids = await load_message_ids_from_disk(app_store)
-        except FileNotFoundError:
-            app_store.logger.warning(
-                f"{app_store.server_identifier}.toml message ID file not found."
-            )
-
-        message_ids = validate_message_ids_format(app_store, message_ids)
-        app_store.message_ids = message_ids
-
-
-async def load_message_ids_from_disk(
-    app_store: AppStore,
-    path: str | None = None,
-    filename: str | None = None,
-) -> tomlkit.TOMLDocument:
-    """Read Discord message IDs from disk"""
-    if not path:
-        path = constants.MESSAGES_DIR
-
-    if not filename:
-        filename = app_store.server_identifier + ".toml"
-
-    file = trio.Path(path, filename)
-    app_store.logger.info(f"Loading Discord message IDs from {file}")
-    async with await trio.open_file(file) as fp:
-        # pylance doesn't understand the return type even though it's a string
-        contents: str = await fp.read()  # type: ignore
-
-    message_ids = tomlkit.loads(contents)
-    app_store.logger.debug(f"Loaded Discord message IDs={message_ids}")
-    return message_ids
 
 
 def with_login(func: Callable):

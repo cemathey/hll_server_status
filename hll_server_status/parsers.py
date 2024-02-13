@@ -2,7 +2,7 @@ import re
 from datetime import timedelta
 from typing import Any
 
-from hll_server_status.models import (
+from hll_server_status.types import (
     AppStore,
     GameState,
     Map,
