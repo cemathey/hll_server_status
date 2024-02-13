@@ -188,50 +188,14 @@ name = "Next Map"
 value = "next_map"
 inline = true
 
-
 ####################################
 #                                  #
 #           Map Rotation           #
-#          (colored text)          #
-#         Message Section          #
-#                                  #
-####################################
-# Display the map rotation as a list of triple backtick ` color coded code blocks
-# https://www.technipages.com/discord-code-blocks
-[display.map_rotation.color]
-enabled = false
-# In seconds, there is a lower limit on how fast you can refresh
-# as determined by the delay time between calling your CRCON and then sending the message to Discord
-time_between_refreshes = 60
-display_title = true
-title = "Map Rotation"
-# Valid options are: auto, cyan, green, orange, gray
-current_map_color = "cyan"
-next_map_color = "green"
-other_map_color = "auto"
-
-display_legend = true
-legend_title = """
-
-Legend
-"""
-legend = ["Current Map", "Next Map", "Other Maps"]
-
-# Include the last refresh time in the footer of the message
-display_last_refreshed = true
-last_refresh_text = """
-Last refreshed <t:{0}:R>
-"""
-
-
-####################################
-#                                  #
-#   Map Rotation Message Section   #
 #                                  #
 ####################################
 
 # Display the map rotation as Discord Embed of fields
-[display.map_rotation.embed]
+[display.map_rotation]
 enabled = true
 # In seconds, there is a lower limit on how fast you can refresh
 # as determined by the delay time between calling your CRCON and then sending the message to Discord
@@ -252,7 +216,7 @@ Legend
 ⬛ - Other Maps
 """
 
-[display.map_rotation.embed.footer]
+[display.map_rotation.footer]
 # Display order is {footer_text} {last_refresh_text} {timestamp}
 # spacing, newlines, etc. are up to you
 

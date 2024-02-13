@@ -30,8 +30,7 @@ from hll_server_status.types import (
 from hll_server_status.utils import (
     build_gamestate,
     build_header,
-    build_map_rotation_color,
-    build_map_rotation_embed,
+    build_map_rotation,
     build_player_stats_embed,
 )
 
@@ -65,15 +64,10 @@ def get_producer_config_values(config: Config, key: str) -> tuple[bool, int, Cal
             config.display.gamestate.time_between_refreshes,
             build_gamestate,
         ),
-        "map_rotation_color": (
-            config.display.map_rotation.color.enabled,
-            config.display.map_rotation.color.time_between_refreshes,
-            build_map_rotation_color,
-        ),
         "map_rotation": (
-            config.display.map_rotation.embed.enabled,
-            config.display.map_rotation.embed.time_between_refreshes,
-            build_map_rotation_embed,
+            config.display.map_rotation.enabled,
+            config.display.map_rotation.time_between_refreshes,
+            build_map_rotation,
         ),
         "player_stats": (
             config.display.player_stats.enabled,

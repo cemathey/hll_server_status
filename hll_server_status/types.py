@@ -281,29 +281,6 @@ class DisplayGamestateConfig(pydantic.BaseModel):
     embeds: list[GamestateEmbedConfig]
 
 
-class DisplayMapRotationColorConfig(pydantic.BaseModel):
-    enabled: bool
-    # pylance complains about this even though it's valid with pydantic
-    time_between_refreshes: pydantic.conint(ge=1)  # type: ignore
-    display_title: bool
-    title: str
-    current_map_color: str
-    next_map_color: str
-    other_map_color: str
-    display_legend: bool
-    legend_title: str
-    legend: list[str]
-    display_last_refreshed: bool
-    last_refresh_text: str
-
-    @pydantic.field_validator("current_map_color", "next_map_color", "other_map_color")
-    def must_be_valid_current_map_color(cls, v, field):
-        if v not in constants.COLOR_TO_CODE_BLOCK.keys():
-            raise ValueError(f"Invalid [display.map_rotation] {field}={v}")
-
-        return v
-
-
 class DisplayMapRotationEmbedConfig(pydantic.BaseModel):
     enabled: bool
     # pylance complains about this even though it's valid with pydantic
@@ -316,11 +293,6 @@ class DisplayMapRotationEmbedConfig(pydantic.BaseModel):
     display_legend: bool
     legend: str
     footer: DisplayFooterConfig
-
-
-class DisplayConfigMapRotation(pydantic.BaseModel):
-    color: DisplayMapRotationColorConfig
-    embed: DisplayMapRotationEmbedConfig
 
 
 class PlayerStatsEmbedConfig(pydantic.BaseModel):
@@ -351,7 +323,7 @@ class DisplayPlayerStatsConfig(pydantic.BaseModel):
 class DisplayConfig(pydantic.BaseModel):
     header: DisplayHeaderConfig
     gamestate: DisplayGamestateConfig
-    map_rotation: DisplayConfigMapRotation
+    map_rotation: DisplayMapRotationEmbedConfig
     player_stats: DisplayPlayerStatsConfig
 
 

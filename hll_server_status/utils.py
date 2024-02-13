@@ -256,81 +256,7 @@ async def build_gamestate(
     return None, gamestate_embed
 
 
-async def build_map_rotation_color(
-    app_store: AppStore,
-    config: Config,
-    get_api_result: Callable,
-    endpoint: str = "get_map_rotation",
-) -> tuple[str | None, discord_webhook.DiscordEmbed | None]:
-    """Build up the content str for the map rotation color message"""
-    app_store.logger.error(app_store)
-    app_store.logger.error(config)
-    app_store.logger.exception("Should not be here")
-    raise Exception
-    result = await get_api_result(app_store, config, endpoint=endpoint)
-    map_rotation = parse_map_rotation(result)
-
-    gamestate_result = await get_api_result(app_store, config, endpoint="get_gamestate")
-
-    gamestate = parse_gamestate(app_store, gamestate_result)
-    current_map_positions = guess_current_map_rotation_positions(
-        map_rotation, gamestate["current_map"], gamestate["next_map"]
-    )
-
-    next_map_positions = guess_next_map_rotation_positions(
-        current_map_positions, map_rotation
-    )
-
-    app_store.logger.debug(f"current map positions color {current_map_positions=}")
-    app_store.logger.debug(f"next map positions color {next_map_positions}")
-
-    content: list[str] = []
-
-    if config.display.map_rotation.color.display_title:
-        content.append(config.display.map_rotation.color.title)
-
-    start_block = "```"
-    end_block = "```"
-    current_map_color = constants.COLOR_TO_CODE_BLOCK[
-        config.display.map_rotation.color.current_map_color
-    ]
-    next_map_color = constants.COLOR_TO_CODE_BLOCK[
-        config.display.map_rotation.color.next_map_color
-    ]
-    other_map_color = constants.COLOR_TO_CODE_BLOCK[
-        config.display.map_rotation.color.other_map_color
-    ]
-
-    for idx, map in enumerate(map_rotation):
-        if idx in current_map_positions:
-            style = current_map_color
-        elif idx in next_map_positions:
-            style = next_map_color
-        # other map color
-        else:
-            style = other_map_color
-        line = start_block + style + "\n" + map.name + "\n" + end_block
-        content.append(line)
-
-    if config.display.map_rotation.color.display_legend:
-        content.append(config.display.map_rotation.color.legend_title)
-        current, next, other = config.display.map_rotation.color.legend
-
-        content.append(start_block + current_map_color + "\n" + current + end_block)
-        content.append(start_block + next_map_color + "\n" + next + end_block)
-        content.append(start_block + other_map_color + "\n" + other + end_block)
-
-    if config.display.map_rotation.color.display_last_refreshed:
-        content.append(
-            config.display.map_rotation.color.last_refresh_text.format(
-                int(datetime.now().timestamp())
-            )
-        )
-
-    return "".join(content), None
-
-
-async def build_map_rotation_embed(
+async def build_map_rotation(
     app_store: AppStore,
     config: Config,
     get_api_result: Callable,
@@ -359,30 +285,30 @@ async def build_map_rotation_embed(
     for idx, map in enumerate(map_rotation):
         if idx in current_map_positions:
             description.append(
-                config.display.map_rotation.embed.current_map.format(map.name, idx + 1)
+                config.display.map_rotation.current_map.format(map.name, idx + 1)
             )
         elif idx in next_map_positions:
             description.append(
-                config.display.map_rotation.embed.next_map.format(map.name, idx + 1)
+                config.display.map_rotation.next_map.format(map.name, idx + 1)
             )
         # other map
         else:
             description.append(
-                config.display.map_rotation.embed.other_map.format(map.name, idx + 1)
+                config.display.map_rotation.other_map.format(map.name, idx + 1)
             )
 
-    if config.display.map_rotation.embed.display_legend:
-        description.append(config.display.map_rotation.embed.legend)
+    if config.display.map_rotation.display_legend:
+        description.append(config.display.map_rotation.legend)
 
     map_rotation_embed.add_embed_field(
-        name=config.display.map_rotation.embed.title, value="\n".join(description)
+        name=config.display.map_rotation.title, value="\n".join(description)
     )
 
     footer_text = ""
-    if config.display.map_rotation.embed.footer.enabled:
-        footer_text = f"{config.display.map_rotation.embed.footer.footer_text}{config.display.map_rotation.embed.footer.last_refresh_text}"
+    if config.display.map_rotation.footer.enabled:
+        footer_text = f"{config.display.map_rotation.footer.footer_text}{config.display.map_rotation.footer.last_refresh_text}"
 
-        if config.display.map_rotation.embed.footer.include_timestamp:
+        if config.display.map_rotation.footer.include_timestamp:
             if footer_text:
                 map_rotation_embed.set_footer(text=footer_text)
             map_rotation_embed.timestamp = datetime.now().isoformat()
