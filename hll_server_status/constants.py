@@ -14,8 +14,6 @@ LOG_DIR: Final = "logs/"
 
 MANDATORY_DIRECTORIES: Final = (CONFIG_DIR, MESSAGES_DIR, LOG_DIR)
 
-MESSAGE_FILE_FORMAT = "{key}.toml"
-
 LOG_EXTENSION: Final = "log"
 LOG_SIZE: Final = "5 MB"
 LOG_RETENTION_DAYS: Final = "3 days"

@@ -1,6 +1,5 @@
 import json
 import time
-import tomllib
 from functools import wraps
 from itertools import cycle
 from pathlib import Path
@@ -10,6 +9,7 @@ import discord_webhook
 import httpx
 import pydantic
 import trio
+import yaml
 
 from hll_server_status import constants, models
 from hll_server_status.exceptions import RateLimited
@@ -237,11 +237,15 @@ async def send_queued_webhook_update(receive_channel, job_key: str):
 
 
 def load_config(app_store: AppStore, file_path: Path) -> Config:
-    """Load and validate a TOML config file"""
+    """Load and validate a yaml config file"""
     raw_config: dict[str, Any]
 
     with open(file_path, mode="rb") as fp:
-        raw_config = tomllib.load(fp)
+        raw_config = yaml.safe_load(fp)
+
+    # from pprint import pprint
+
+    # pprint(raw_config)
 
     key = "settings"
     try:

@@ -166,9 +166,8 @@ class URL(pydantic.BaseModel):
 
 
 class SettingsConfig(pydantic.BaseModel):
-    # pylance complains about this even though it's valid with pydantic
-    time_between_config_file_reads: pydantic.conint(ge=1)  # type: ignore
-    disabled_section_sleep_timer: pydantic.conint(ge=1)  # type: ignore
+    time_between_config_file_reads: int = pydantic.Field(ge=1)
+    disabled_section_sleep_timer: int = pydantic.Field(ge=1)
 
 
 class DiscordConfig(pydantic.BaseModel):
@@ -210,7 +209,7 @@ class GamestateEmbedConfig(pydantic.BaseModel):
 
 class DisplayFooterConfig(pydantic.BaseModel):
     enabled: bool
-    footer_text: str | None
+    text: str | None
     include_timestamp: bool
     last_refresh_text: str | None
 
