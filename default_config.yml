@@ -226,7 +226,7 @@ display:
         value: "longest_life"
         inline: true
       - name: ":clock1: Shortest Life"
-        value: "shortest_ilfe"
+        value: "shortest_life"
         inline: true
       - name: "\u200b"
         value: "\u200b"
