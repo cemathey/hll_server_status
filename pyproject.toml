@@ -11,7 +11,7 @@ python = "^3.11"
 pydantic = "2.6.4"
 python-dateutil = "^2.9.0"
 trio = "^0.24.0"
-httpx = "^0.26.0"
+httpx = "^0.27.0"
 loguru = "^0.7.2"
 discord-webhook = { git = "https://github.com/cemathey/python-discord-webhook.git", branch = "feat/anyio" }
 anyio = "^3.7.1"
