@@ -153,7 +153,7 @@ Just delete one message at a time that you consider out of order, the tool will 
 
 # Miscellaneous
 
-If you like what you do and would like me to continue volunteering my time, consider [tossing me a few dollars](https://www.buymeacoffee.com/emathey1).
+If you like what I do and would like me to continue volunteering my time, consider [tossing me a few dollars](https://www.buymeacoffee.com/emathey1).
 
 # Contributing
 
