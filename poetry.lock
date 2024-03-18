@@ -370,19 +370,33 @@ pycodestyle = ">=2.11.0,<2.12.0"
 pyflakes = ">=3.2.0,<3.3.0"
 
 [[package]]
-name = "flake8-trio"
-version = "23.5.1"
+name = "flake8-async"
+version = "24.3.3"
 description = "A highly opinionated flake8 plugin for Trio-related problems."
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "flake8-trio-23.5.1.tar.gz", hash = "sha256:e503dbb1ef54bba4625d5f0ec0aff8eb479cae28894d3806a44f7f53610488f0"},
-    {file = "flake8_trio-23.5.1-py3-none-any.whl", hash = "sha256:88ff60812411cd0f5d3bc639d8ed282f1679e15ca5d650e7abfcb4c387ff84d2"},
+    {file = "flake8-async-24.3.3.tar.gz", hash = "sha256:bc5e8fa6d174bed60fa28dffb2869b8e4b92db267204bb24865e1451cd784da0"},
+    {file = "flake8_async-24.3.3-py3-none-any.whl", hash = "sha256:8d81eab8f0eb27c6f9ecddf366acf939341a8aadb2935521c676b05660de9d6f"},
 ]
 
 [package.dependencies]
-flake8 = "*"
-libcst = "*"
+flake8 = ">=6"
+libcst = ">=1.0.1"
+
+[[package]]
+name = "flake8-trio"
+version = "24.3.9"
+description = "Micropackage to redirect users to flake8-async."
+optional = false
+python-versions = ">=3"
+files = [
+    {file = "flake8_trio-24.3.9-py3-none-any.whl", hash = "sha256:0b2149d9c6c183c6849bf686683cb18277ebeee0a4d27c49b2ac928707be0a19"},
+    {file = "flake8_trio-24.3.9.tar.gz", hash = "sha256:7a9be314bd811e0ec066edc99294165ab7e2cea92d4c25cc8b49a5611f8cbdec"},
+]
+
+[package.dependencies]
+flake8-async = ">=24.3.1"
 
 [[package]]
 name = "greenlet"
@@ -1208,4 +1222,4 @@ dev = ["black (>=19.3b0)", "pytest (>=4.6.2)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "858a5fc4b2690660ce89e2e1cac8fa7c52dae2dc698cd88b8944110ac0eafeb8"
+content-hash = "742d47e403122c1f51fd147def23186dee6b4f24e5f679803553641766162235"
