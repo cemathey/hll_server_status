@@ -76,7 +76,7 @@ def parse_vip_slots_num(result: dict[str, Any]):
 
 
 def parse_vips_count(result: dict[str, Any]):
-    """Parse and validate the number of VIPs on the server from /api/get_vip_slots_num"""
+    """Parse and validate the number of VIPs on the server from /api/get_vips_count"""
     return int(result["result"])
 
 
