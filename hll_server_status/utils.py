@@ -13,6 +13,7 @@ from hll_server_status.parsers import (
     parse_server_name,
     parse_slots,
     parse_vip_slots_num,
+    parse_vips_by_team,
     parse_vips_count,
 )
 from hll_server_status.types import URL, AppStore, Config, Map, PlayerStats
@@ -182,12 +183,22 @@ async def build_gamestate(
     config: Config,
     get_api_result: Callable,
     endpoint: str = "get_gamestate",
+    team_view_endpoint: str = "get_team_view",
 ) -> tuple[str | None, discord_webhook.DiscordEmbed | None]:
     """Build up the Discord.Embed for the gamestate message"""
     gamestate_embed = discord_webhook.DiscordEmbed()
 
     result: dict[str, Any] = await get_api_result(app_store, config, endpoint=endpoint)
     gamestate = parse_gamestate(app_store, result)
+
+    if any(
+        option.value in ("num_allied_vips", "num_axis_vips")
+        for option in config.display.gamestate.embeds
+    ):
+        result: dict[str, Any] = await get_api_result(
+            app_store, config, endpoint=team_view_endpoint
+        )
+        team_view = parse_vips_by_team(result)
 
     if config.display.gamestate.image:
         url = get_map_picture_url(config, gamestate["current_map"])
@@ -224,6 +235,10 @@ async def build_gamestate(
             value = format_str.format(
                 gamestate["allied_score"], gamestate["axis_score"]
             )
+        elif option.value == "num_allied_vips":
+            value = str(team_view["allies"])
+        elif option.value == "num_axis_vips":
+            value = str(team_view["axis"])
         # make mypy happy by using string literals in the gamestate typed dict
         # instead of doing it dynamically
         elif option.value == "current_map":

@@ -301,3 +301,9 @@ class Config(pydantic.BaseModel):
     discord: DiscordConfig
     api: APIConfig
     display: DisplayConfig
+
+
+class TeamVIPCount(TypedDict):
+    allies: int
+    axis: int
+    none: int
