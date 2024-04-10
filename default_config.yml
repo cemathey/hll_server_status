@@ -97,6 +97,18 @@ display:
       - name: "\u200b"
         value: "\u200b"
         inline: false
+      - name: "Allied VIPs"
+        value: "num_allied_vips"
+        inline: true
+      - name: "Axis VIPs"
+        value: "num_axis_vips"
+        inline: true
+      - name: "\u200b"
+        value: "\u200b"
+        inline: true
+      - name: "\u200b"
+        value: "\u200b"
+        inline: false
       - name: "Match Score"
         value: "score"
         inline: true

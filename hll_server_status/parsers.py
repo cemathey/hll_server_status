@@ -10,6 +10,7 @@ from hll_server_status.types import (
     PlayerStatsCrconType,
     ServerName,
     Slots,
+    TeamVIPCount,
 )
 
 TIME_REMAINING_PATTERN = re.compile(r"(\d{1}):(\d{2}):(\d{2})")
@@ -111,3 +112,22 @@ def parse_player_stats(result: dict[str, Any]) -> list[PlayerStats]:
         )
         for raw_player in raw_result
     ]
+
+
+def parse_vips_by_team(result: dict[str, Any]) -> TeamVIPCount:
+    teams: TeamVIPCount = {"allies": 0, "axis": 0, "none": 0}
+
+    for team in teams:
+        try:
+            for squad_key in result[team]["squads"].keys():
+                for player in result[team]["squads"][squad_key]["players"]:
+                    if player["is_vip"]:
+                        teams[team] += 1
+        except KeyError:
+            continue
+
+        commander = result[team]["commander"] or {}
+        if commander.get("is_vip"):
+            teams[team] += 1
+
+    return teams

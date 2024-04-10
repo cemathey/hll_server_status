@@ -30,6 +30,8 @@ DISPLAY_EMBEDS: Final = ("reserved_vip_slots", "current_vips")
 GAMESTATE_EMBEDS: Final = (
     "num_allied_players",
     "num_axis_players",
+    "num_allied_vips",
+    "num_axis_vips",
     "slots",
     "score",
     "time_remaining",
