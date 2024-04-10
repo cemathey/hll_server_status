@@ -10,7 +10,7 @@ services:
             - ./config:/code/config
             - ./messages:/code/messages
         restart: unless-stopped
-        image: hll_server_status:latest
+        image: cericmathey/hll_server_status:latest
         build:
           dockerfile: ./Dockerfile
           context: .
