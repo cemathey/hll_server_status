@@ -22,7 +22,7 @@ You can _probably_ in theory run this anywhere that supports `Docker` or if runn
 
 - Disk space / RAM
 
-You don't need much, enough to run your distro and Docker, mine is running on an `alpine` Linux container using ~2gb of disk space and less than 200mb of RAM, you will need some spare RAM and disk space to build the Docker images if you're using that though.
+You don't need much, enough to run your distro and Docker, mine is running on an `alpine` Linux container using ~2gb of disk space and less than 200mb of RAM.
 
 # Installing
 
@@ -37,10 +37,10 @@ git checkout <release version>
 
 ## Using Docker (recommended)
 
-1. Build the `Docker` `image` which may take a few minutes:
+1. Pull the `Docker` `image`:
 
 ```sh
-docker compose build
+docker compose pull
 ```
 
 2. Configure as many servers as you want, copy `default_config.toml` into the `config/` directory and fill it out (See the configuration section)
@@ -98,13 +98,13 @@ password = ""
 
 # Updating
 
-1. Refresh the `git` repository **or** download a new release, but see the release notes for any `default_config.toml` changes.
+1. Refresh the `git` repository **or** download a new release, but see the release notes for any `default_config.yml` changes.
 2. Substitute <release version> with the desired release, such as `v1.4.0`
 
 ```sh
 git pull
 git checkout <release version>
-docker compose build
+docker compose pull
 docker compose up -d
 ```
 
@@ -129,10 +129,6 @@ docker compose up -d
 6. I can't get this working, will you help me?
 
    Not beyond this README, it's open source and if you can't figure out how to get it running contact me and I will [host it for you](https://crcon.cc/) for a nominal fee.
-
-7. Any plans to host pre-built Docker images like Community RCON or other projects do?
-
-   No.
 
 8. I don't know how to use Docker, help!
 
