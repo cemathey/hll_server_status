@@ -59,7 +59,7 @@ display:
       # Set to "" to disable
       last_refresh_text: "Last refreshed"
   # An embed to show information about the current match
-  game_state:
+  gamestate:
     enabled: true
     # In seconds, there is a lower limit on how fast you can refresh
     # as determined by the delay time between calling your CRCON and then sending the message to Discord
