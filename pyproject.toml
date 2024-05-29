@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hll-server-status"
-version = "1.6.2"
+version = "1.7.0"
 description = "A server status tool for reporting Hell Let Loose server status to Discord"
 authors = ["C. Eric Mathey <emathey@protonmail.com>"]
 readme = "README.md"
