@@ -17,7 +17,7 @@ def init_engine(db_name):
         Base.metadata.create_all(engine)
         engines[db_name] = engine
     except Exception as e:
-       raise e 
+        raise e
 
 
 @contextmanager
