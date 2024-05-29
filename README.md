@@ -66,35 +66,29 @@ docker compose up -d
 - There should be no real practical limit to the number of webhooks you can update with this, but who knows you might run into some weird `Discord` rate limiting on their end at some point and even though it uses `async` it's still subject to the [Python Global Interpreter Lock](https://realpython.com/python-gil/) and is only running on one thread on one core.
 
 ```sh
-cp default_config.toml config/desired_name.toml
+cp default_config.yml config/desired_name.yml
 ```
 
 ## Mandatory Configuration
 
-```toml
-################################
-#                              #
-#       Discord Webhook        #
-#                              #
-################################
-[discord]
-# In the format https://discord.com/api/webhooks/.../...
-webhook_url = ""
+Set your webhook
 
-
-################################
-#                              #
-#      CRCON API Settings      #
-#                              #
-################################
-[api]
-# The URL or IP address of your CRCON, trailing / optional
-# for instance http://<ip>:<port>/ or https://yoururl.whatever/
-base_server_url = ""
-# Your CRCON username and password
-username = ""
-password = ""
+```yaml
+discord:
+  # In the format https://discord.com/api/webhooks/.../...
+  webhook_url: ""
 ```
+
+Set your server URL and API key
+
+```yaml
+api:
+  # The URL or IP address of your CRCON, trailing / optional
+  # for instance http://<ip>:<port>/ or https://yoururl.whatever/
+  base_server_url: ""
+  # CRCON API keys are generated from the admin site
+  api_key: ""
+  ```
 
 # Updating
 
