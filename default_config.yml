@@ -1,3 +1,4 @@
+name: MyServer
 settings:
   # In seconds, how often to re-read this file for changes
   time_between_config_file_reads: 300
