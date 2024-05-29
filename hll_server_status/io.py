@@ -156,7 +156,7 @@ async def queue_webhook_update(
                 )
                 await trio.sleep(time_to_sleep)
             else:
-                with enter_session() as session:
+                with enter_session(config.name) as session:
                     message_ids = get_set_wh_row(
                         session=session, webhook_url=str(webhook_url)
                     )
@@ -234,7 +234,7 @@ async def send_queued_webhook_update(receive_channel):
             message_id = constants.NONE_MESSAGE_ID
 
         models.save_message_ids_by_key(
-            webhook_url=str(webhook_url), key=key, value=message_id
+            config.name, webhook_url=str(webhook_url), key=key, value=message_id
         )
 
 
@@ -244,6 +244,9 @@ def load_config(app_store: AppStore, file_path: Path) -> Config:
 
     with open(file_path, mode="rb") as fp:
         raw_config = yaml.safe_load(fp)
+
+    name = file_path.stem
+    models.init_engine(name)
 
     key = "settings"
     try:
@@ -274,6 +277,7 @@ def load_config(app_store: AppStore, file_path: Path) -> Config:
         raise
 
     config = Config(
+        name=name,
         settings=settings_config,
         discord=discord_config,
         api=api_config,

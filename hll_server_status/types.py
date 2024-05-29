@@ -297,6 +297,7 @@ class DisplayConfig(pydantic.BaseModel):
 
 
 class Config(pydantic.BaseModel):
+    name: str
     settings: SettingsConfig
     discord: DiscordConfig
     api: APIConfig
