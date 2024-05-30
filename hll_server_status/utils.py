@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Callable
+from urllib.parse import urljoin
 
 import discord_webhook
 
@@ -16,11 +17,19 @@ from hll_server_status.parsers import (
     parse_vips_by_team,
     parse_vips_count,
 )
-from hll_server_status.types import URL, AppStore, Config, Map, PlayerStats
+from hll_server_status.types import (
+    URL,
+    AppStore,
+    Config,
+    FactionName,
+    GameStateType,
+    Layer,
+    PlayerStats,
+)
 
 
 def guess_current_map_rotation_positions(
-    rotation: list[Map], current_map: Map, next_map: Map
+    rotation: list[Layer], current_map: Layer, next_map: Layer
 ) -> list[int]:
     """Estimate the index(es) of the current map in the rotation based off current/next map"""
     # As of U13 a map can be in a rotation more than once, but the index isn't
@@ -30,19 +39,19 @@ def guess_current_map_rotation_positions(
     # TODO: use previous map to better estimate
 
     # Between rounds
-    if current_map.raw_name == constants.BETWEEN_MATCHES_MAP_NAME:
+    if current_map.id == constants.UNKNOWN_MAP_NAME:
         return []
 
-    raw_names = [map.raw_name for map in rotation]
+    raw_names = [map.id for map in rotation]
 
     # the current map is only in once then we know exactly where we are
-    if raw_names.count(current_map.raw_name) == 1:
-        return [raw_names.index(current_map.raw_name)]
+    if raw_names.count(current_map.id) == 1:
+        return [raw_names.index(current_map.id)]
 
     # the current map is in more than once, we must estimate
     # if the next map is in only once then we know exactly where we are
     current_map_idxs = []
-    for idx in [idx for idx, name in enumerate(raw_names) if name == next_map.raw_name]:
+    for idx in [idx for idx, name in enumerate(raw_names) if name == next_map.id]:
         # if raw_names.count(next_map.raw_name) == 1:
         # next_map_idx = raw_names.index(next_map.raw_name)
         # current_map_idx = None
@@ -66,7 +75,7 @@ def guess_current_map_rotation_positions(
 
 
 def guess_next_map_rotation_positions(
-    current_map_positions: list[int], rotation: list[Map]
+    current_map_positions: list[int], rotation: list[Layer]
 ) -> list[int]:
     """Estimate the index(es) of the next map in the rotation based off current/next map"""
     rotation_length = len(rotation)
@@ -84,28 +93,10 @@ def guess_next_map_rotation_positions(
 
 
 def get_map_picture_url(
-    config: Config, map: Map, map_prefix=constants.MAP_PICTURES
+    config: Config, map: Layer, map_prefix=constants.MAP_PICTURES
 ) -> URL | None:
     """Build and validate a URL to the CRCON map image"""
-    if map.raw_name == constants.BETWEEN_MATCHES_MAP_NAME:
-        return None
-
-    try:
-        base_map_name, _ = map.raw_name.split("_", maxsplit=1)
-    except ValueError:
-        base_map_name = map.raw_name
-
-    if "night" in map.raw_name.lower():
-        base_map_name = base_map_name + "_night"
-
-    try:
-        map_to_picture = constants.MAP_TO_PICTURE[base_map_name]
-    except KeyError:
-        # Most likely an update has dropped and a new map exists
-        map_to_picture = base_map_name + ".webp"
-
-    url = str(config.api.base_server_url) + map_prefix + map_to_picture
-
+    url = urljoin(base=str(config.api.base_server_url), url=map.image_name)
     # This is valid even though pylance complains about it
     return URL(url=url)  # type: ignore
 
@@ -188,7 +179,7 @@ async def build_gamestate(
     """Build up the Discord.Embed for the gamestate message"""
     gamestate_embed = discord_webhook.DiscordEmbed()
 
-    result: dict[str, Any] = await get_api_result(app_store, config, endpoint=endpoint)
+    result: GameStateType = await get_api_result(app_store, config, endpoint=endpoint)  # type: ignore
     gamestate = parse_gamestate(app_store, result)
 
     if any(
@@ -201,7 +192,7 @@ async def build_gamestate(
         team_view = parse_vips_by_team(result)
 
     if config.display.gamestate.image:
-        url = get_map_picture_url(config, gamestate["current_map"])
+        url = get_map_picture_url(config, gamestate.current_map)
 
         if url:
             gamestate_embed.set_image(url=str(url.url))
@@ -216,25 +207,23 @@ async def build_gamestate(
         elif option.value == "score":
             if (
                 config.display.gamestate.score_format_ger_us
-                and gamestate["current_map"].raw_name in constants.US_MAPS
+                and gamestate.current_map.map.allies == FactionName.US
             ):
                 format_str = config.display.gamestate.score_format_ger_us
             elif (
                 config.display.gamestate.score_format_ger_rus
-                and gamestate["current_map"].raw_name in constants.RUSSIAN_MAPS
+                and gamestate.current_map.map.allies == FactionName.RUS
             ):
                 format_str = config.display.gamestate.score_format_ger_rus
             elif (
                 config.display.gamestate.score_format_ger_uk
-                and gamestate["current_map"].raw_name in constants.UK_MAPS
+                and gamestate.current_map.map.allies == FactionName.GB
             ):
                 format_str = config.display.gamestate.score_format_ger_uk
             else:
                 format_str = config.display.gamestate.score_format
 
-            value = format_str.format(
-                gamestate["allied_score"], gamestate["axis_score"]
-            )
+            value = format_str.format(gamestate.allied_score, gamestate.axis_score)
         elif option.value == "num_allied_vips":
             value = str(team_view["allies"])
         elif option.value == "num_axis_vips":
@@ -242,15 +231,15 @@ async def build_gamestate(
         # make mypy happy by using string literals in the gamestate typed dict
         # instead of doing it dynamically
         elif option.value == "current_map":
-            value = gamestate["current_map"].name
+            value = gamestate.current_map.pretty_name
         elif option.value == "next_map":
-            value = gamestate["next_map"].name
+            value = gamestate.next_map.pretty_name
         elif option.value == "time_remaining":
-            value = str(gamestate["time_remaining"])
+            value = str(gamestate.time_remaining)
         elif option.value == "num_allied_players":
-            value = str(gamestate["num_allied_players"])
+            value = str(gamestate.num_allied_players)
         elif option.value == "num_axis_players":
-            value = str(gamestate["num_axis_players"])
+            value = str(gamestate.num_axis_players)
         else:
             raise ValueError(
                 f"Invalid {option.value} in [[display.gamestate.embeds]] for {app_store.server_identifier}"
@@ -285,7 +274,7 @@ async def build_map_rotation(
     gamestate = parse_gamestate(app_store, gamestate_result)
 
     current_map_positions = guess_current_map_rotation_positions(
-        map_rotation, gamestate["current_map"], gamestate["next_map"]
+        map_rotation, gamestate.current_map, gamestate.next_map
     )
     next_map_positions = guess_next_map_rotation_positions(
         current_map_positions, map_rotation
@@ -300,16 +289,16 @@ async def build_map_rotation(
     for idx, map in enumerate(map_rotation):
         if idx in current_map_positions:
             description.append(
-                config.display.map_rotation.current_map.format(map.name, idx + 1)
+                config.display.map_rotation.current_map.format(map.pretty_name, idx + 1)
             )
         elif idx in next_map_positions:
             description.append(
-                config.display.map_rotation.next_map.format(map.name, idx + 1)
+                config.display.map_rotation.next_map.format(map.pretty_name, idx + 1)
             )
         # other map
         else:
             description.append(
-                config.display.map_rotation.other_map.format(map.name, idx + 1)
+                config.display.map_rotation.other_map.format(map.pretty_name, idx + 1)
             )
 
     if config.display.map_rotation.display_legend:
