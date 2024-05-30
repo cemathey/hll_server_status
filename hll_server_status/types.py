@@ -1,12 +1,14 @@
 import re
 from dataclasses import dataclass
 from datetime import timedelta
+from enum import Enum
 from itertools import zip_longest
-from typing import TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, Union
 
 import httpx
 import loguru
 import pydantic
+import typing_extensions
 
 from hll_server_status import constants
 
@@ -18,52 +20,192 @@ class ServerName(pydantic.BaseModel):
     short_name: str
 
 
+class MapType(typing_extensions.TypedDict):
+    id: str
+    name: str
+    tag: str
+    pretty_name: str
+    shortname: str
+    allies: "Faction"
+    axis: "Faction"
+
+
+class LayerType(typing_extensions.TypedDict):
+    id: str
+    map: MapType
+    game_mode: str
+    attackers: str | None
+    environment: str
+    pretty_name: str
+    image_name: str
+    image_url: str | None
+
+
+class GameMode(str, Enum):
+    WARFARE = "warfare"
+    OFFENSIVE = "offensive"
+    CONTROL = "control"
+    PHASED = "phased"
+    MAJORITY = "majority"
+
+    @classmethod
+    def large(cls):
+        return (
+            cls.WARFARE,
+            cls.OFFENSIVE,
+        )
+
+    @classmethod
+    def small(cls):
+        return (
+            cls.CONTROL,
+            cls.PHASED,
+            cls.MAJORITY,
+        )
+
+    def is_large(self):
+        return self in GameMode.large()
+
+    def is_small(self):
+        return self in GameMode.small()
+
+
+class Team(str, Enum):
+    ALLIES = "allies"
+    AXIS = "axis"
+
+
+class Environment(str, Enum):
+    DAWN = "dawn"
+    DAY = "day"
+    DUSK = "dusk"
+    NIGHT = "night"
+    OVERCAST = "overcast"
+    RAIN = "rain"
+
+
+class FactionName(Enum):
+    CW = "cw"
+    GB = "gb"
+    GER = "ger"
+    RUS = "rus"
+    US = "us"
+
+
+class Faction(pydantic.BaseModel):
+    name: str
+    team: Team
+
+
 class Map(pydantic.BaseModel):
-    """Represents a RCON map name such as foy_offensive_ger"""
+    id: str
+    name: str
+    tag: str
+    pretty_name: str
+    shortname: str
+    allies: "Faction"
+    axis: "Faction"
 
-    raw_name: str
-
-    @pydantic.validator("raw_name")
-    def must_be_valid_map_name(cls, v):
-        map_change_pattern = r"Untitled_\d+"
-
-        if re.match(map_change_pattern, v):
-            return constants.BETWEEN_MATCHES_MAP_NAME
-
-        restart_maps = [
-            map_name + suffix
-            for map_name, suffix in zip_longest(
-                constants.ALL_MAPS, [], fillvalue=constants.MAP_RESTART_SUFFIX
-            )
-        ]
-
-        if v in restart_maps:
-            v = v.replace("_RESTART", "")
-
-        if v not in constants.ALL_MAPS:
-            # Most likely an update has dropped and a new map exists
-            v = v.split("_", 1)[0]
-            if v == "":
-                v = "Unknown Map"
-
-        return v
-
-    @property
-    def name(self):
-        try:
-            _name = constants.LONG_HUMAN_MAP_NAMES[self.raw_name]
-        except KeyError:
-            # Most likely an update has dropped and a new map exists
-            _name = self.raw_name
-
-        return _name
+    def __str__(self) -> str:
+        return self.id
 
     def __repr__(self) -> str:
-        return f"{self.__class__}({self.name=} {self.raw_name=})"
+        return str(self)
+
+    def __hash__(self) -> int:
+        return hash(self.id)
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, (Map, str)):
+            return str(self) == str(other)
+        return NotImplemented
 
 
-class GameState(TypedDict):
-    """Response from api/get_gamestate"""
+class Layer(pydantic.BaseModel):
+    id: str
+    map: Map
+    game_mode: GameMode
+    attackers: Union[Team, None] = None
+    environment: Environment = Environment.DAY
+
+    def __str__(self) -> str:
+        return self.id
+
+    def __repr__(self) -> str:
+        return f"{self.__class__}(id={self.id}, map={self.map}, attackers={self.attackers}, environment={self.environment})"
+
+    def __hash__(self) -> int:
+        return hash(self.id)
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, (Layer, str)):
+            return str(self) == str(other)
+        return NotImplemented
+
+    if TYPE_CHECKING:
+        # Ensure type checkers see the correct return type
+        def model_dump(
+            self,
+            *,
+            mode: Literal["json", "python"] | str = "python",
+            include: Any = None,
+            exclude: Any = None,
+            by_alias: bool = False,
+            exclude_unset: bool = False,
+            exclude_defaults: bool = False,
+            exclude_none: bool = False,
+            round_trip: bool = False,
+            warnings: bool = True,
+        ) -> LayerType:
+            ...
+
+    else:
+
+        def model_dump(self, **kwargs):
+            return super().model_dump(**kwargs)
+
+    @property
+    def attacking_faction(self):
+        if self.attackers == Team.ALLIES:
+            return self.map.allies
+        elif self.attackers == Team.AXIS:
+            return self.map.axis
+        return None
+
+    @pydantic.computed_field
+    @property
+    def pretty_name(self) -> str:
+        out = self.map.pretty_name
+        if self.game_mode == GameMode.OFFENSIVE:
+            out += " Off."
+            if self.attackers and self.attacking_faction:
+                out += f" {self.attacking_faction.name.upper()}"
+        elif self.game_mode.is_small():
+            # TODO: Remove once more Skirmish modes release
+            out += " Skirmish"
+        else:
+            out += f" {self.game_mode.value.capitalize()}"
+        if self.environment != Environment.DAY:
+            out += f" ({self.environment.value.title()})"
+        return out
+
+    @property
+    def opposite_side(self) -> Literal[Team.AXIS, Team.ALLIES] | None:
+        if self.attackers:
+            return get_opposite_side(self.attackers)
+
+    @pydantic.computed_field
+    @property
+    def image_name(self) -> str:
+        return f"{self.map.id}-{self.environment.value}.webp".lower()
+
+
+def get_opposite_side(team: Team) -> Literal[Team.AXIS, Team.ALLIES]:
+    return Team.AXIS if team == Team.ALLIES else Team.ALLIES
+
+
+class GameStateType(TypedDict):
+    """TypedDict for Rcon.get_gamestate"""
 
     num_allied_players: int
     num_axis_players: int
@@ -71,8 +213,24 @@ class GameState(TypedDict):
     axis_score: int
     raw_time_remaining: str
     time_remaining: timedelta
-    current_map: Map
-    next_map: Map
+    current_map: LayerType
+    next_map: LayerType
+
+
+class GameState(pydantic.BaseModel):
+    num_allied_players: int
+    num_axis_players: int
+    allied_score: int
+    axis_score: int
+    raw_time_remaining: str
+    time_remaining: float
+    current_map: Layer
+    next_map: Layer
+
+
+class SlotsType(TypedDict):
+    current_players: int
+    max_players: int
 
 
 class Slots(pydantic.BaseModel):
@@ -84,7 +242,7 @@ class Slots(pydantic.BaseModel):
 
 class PlayerStatsCrconType(TypedDict):
     player: str
-    steam_id_64: str
+    player_id: str
 
     kills: int
     kills_streak: int
@@ -114,7 +272,7 @@ class PlayerStatsCrconType(TypedDict):
 
 class PlayerStats(pydantic.BaseModel):
     player: str
-    steam_id_64: str
+    player_id: str
 
     kills: int
     kill_streak: int

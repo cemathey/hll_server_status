@@ -13,7 +13,7 @@ def init_engine(db_name):
         pass
     try:
         engine_string = f"sqlite:///file:messages/{db_name}.sqlite?mode=rwc&uri=true"
-        engine = create_engine(engine_string, echo=True)
+        engine = create_engine(engine_string, echo=False)
         Base.metadata.create_all(engine)
         engines[db_name] = engine
     except Exception as e:
