@@ -96,7 +96,7 @@ def get_map_picture_url(
     config: Config, map: Layer, map_prefix=constants.MAP_PICTURES
 ) -> URL | None:
     """Build and validate a URL to the CRCON map image"""
-    url = urljoin(base=str(config.api.base_server_url), url=map.image_name)
+    url = urljoin(base=str(config.api.base_server_url), url=f"maps/{map.image_name}")
     # This is valid even though pylance complains about it
     return URL(url=url)  # type: ignore
 
