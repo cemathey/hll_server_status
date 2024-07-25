@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 from urllib.parse import urljoin
 
@@ -235,7 +235,8 @@ async def build_gamestate(
         elif option.value == "next_map":
             value = gamestate.next_map.pretty_name
         elif option.value == "time_remaining":
-            value = str(gamestate.time_remaining)
+            time_d = timedelta(seconds=gamestate.time_remaining)
+            value = str(time_d)
         elif option.value == "num_allied_players":
             value = str(gamestate.num_allied_players)
         elif option.value == "num_axis_players":
