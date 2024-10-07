@@ -19,7 +19,7 @@ sqlalchemy = "^2.0.32"
 
 [tool.poetry.group.dev.dependencies]
 loguru-mypy = "^0.0.4"
-black = "^24.4.2"
+black = "^24.10.0"
 isort = "^5.13.2"
 flake8-trio = "^24.3.9"
 pre-commit = "^3.8.0"
