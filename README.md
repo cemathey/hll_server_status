@@ -1,3 +1,5 @@
+This repository is now archived because the functionality has been integrated into [Community RCON](https://github.com/MarechJ/hll_rcon_tool) and I will no longer be making any updates to this project here; any new features/changes will be in CRCON itself.
+
 # About
 
 A stand alone Hell Let Loose server status tool for servers running [Community RCON](https://github.com/MarechJ/hll_rcon_tool) with some excellent features!
